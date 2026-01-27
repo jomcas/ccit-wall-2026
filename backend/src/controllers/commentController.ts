@@ -1,9 +1,14 @@
 import { Request, Response } from 'express';
 import Comment from '../models/Comment';
 import Post from '../models/Post';
+import mongoose from 'mongoose';
 
 export const createComment = async (req: Request, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    
     const { content } = req.body;
     const { postId } = req.params;
 
@@ -49,6 +54,10 @@ export const getCommentsByPost = async (req: Request, res: Response) => {
 
 export const updateComment = async (req: Request, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    
     const { content } = req.body;
     const comment = await Comment.findById(req.params.id);
 
@@ -71,6 +80,10 @@ export const updateComment = async (req: Request, res: Response) => {
 
 export const deleteComment = async (req: Request, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    
     const comment = await Comment.findById(req.params.id);
 
     if (!comment) {
@@ -94,6 +107,10 @@ export const deleteComment = async (req: Request, res: Response) => {
 
 export const likeComment = async (req: Request, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    
     const comment = await Comment.findById(req.params.id);
 
     if (!comment) {
@@ -101,12 +118,13 @@ export const likeComment = async (req: Request, res: Response) => {
     }
 
     const userIdStr = req.user.userId.toString();
+    const userObjectId = new mongoose.Types.ObjectId(req.user.userId);
     const likeIndex = comment.likes.findIndex(id => id.toString() === userIdStr);
 
     if (likeIndex > -1) {
       comment.likes.splice(likeIndex, 1);
     } else {
-      comment.likes.push(req.user.userId);
+      comment.likes.push(userObjectId);
     }
 
     await comment.save();

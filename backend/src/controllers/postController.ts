@@ -1,9 +1,14 @@
 import { Request, Response } from 'express';
 import Post from '../models/Post';
 import Comment from '../models/Comment';
+import mongoose from 'mongoose';
 
 export const createPost = async (req: Request, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    
     const { title, description, category, isAnonymous, attachments } = req.body;
 
     // Teachers can only post public posts (announcements and reminders)
@@ -73,6 +78,10 @@ export const getPostById = async (req: Request, res: Response) => {
 
 export const updatePost = async (req: Request, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    
     const { title, description, category, isAnonymous } = req.body;
     const post = await Post.findById(req.params.id);
 
@@ -106,6 +115,10 @@ export const updatePost = async (req: Request, res: Response) => {
 
 export const deletePost = async (req: Request, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    
     const post = await Post.findById(req.params.id);
 
     if (!post) {
@@ -125,6 +138,10 @@ export const deletePost = async (req: Request, res: Response) => {
 
 export const likePost = async (req: Request, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    
     const post = await Post.findById(req.params.id);
 
     if (!post) {
@@ -132,12 +149,13 @@ export const likePost = async (req: Request, res: Response) => {
     }
 
     const userIdStr = req.user.userId.toString();
+    const userObjectId = new mongoose.Types.ObjectId(req.user.userId);
     const likeIndex = post.likes.findIndex(id => id.toString() === userIdStr);
 
     if (likeIndex > -1) {
       post.likes.splice(likeIndex, 1);
     } else {
-      post.likes.push(req.user.userId);
+      post.likes.push(userObjectId);
     }
 
     await post.save();
@@ -149,6 +167,10 @@ export const likePost = async (req: Request, res: Response) => {
 
 export const addReaction = async (req: Request, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    
     const { emoji } = req.body;
     const post = await Post.findById(req.params.id);
 
@@ -157,6 +179,7 @@ export const addReaction = async (req: Request, res: Response) => {
     }
 
     const userIdStr = req.user.userId.toString();
+    const userObjectId = new mongoose.Types.ObjectId(req.user.userId);
     if (!post.reactions) {
       post.reactions = new Map();
     }
@@ -171,7 +194,7 @@ export const addReaction = async (req: Request, res: Response) => {
     if (reactionIndex > -1) {
       userReactions.splice(reactionIndex, 1);
     } else {
-      userReactions.push(req.user.userId);
+      userReactions.push(userObjectId);
     }
 
     post.reactions.set(emoji, userReactions);
@@ -185,6 +208,10 @@ export const addReaction = async (req: Request, res: Response) => {
 
 export const sharePost = async (req: Request, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    
     const post = await Post.findById(req.params.id);
 
     if (!post) {
@@ -192,10 +219,11 @@ export const sharePost = async (req: Request, res: Response) => {
     }
 
     const userIdStr = req.user.userId.toString();
+    const userObjectId = new mongoose.Types.ObjectId(req.user.userId);
     const shareIndex = post.shares.findIndex(id => id.toString() === userIdStr);
 
     if (shareIndex === -1) {
-      post.shares.push(req.user.userId);
+      post.shares.push(userObjectId);
     }
 
     await post.save();
