@@ -1,0 +1,27 @@
+A MERN stack web application for a university college called CCIT (College of Computing and Information Technologies) of National university philippines.
+It is a like a social media app (simple facebook/tumblr/twitter)that can do the following:
+
+Students can post eihter post publicly or anonymously about college related activities, general, or extra curricular related. 
+
+Teachers can post announcements, reminders
+
+Post can be text only, with pictures, or file attachments.
+
+Post format should have a post title and post description.
+
+Must have a searching functionality that can either be search by name or by post title.
+
+Post must have a metric (likes reactions), comment functionality and shared.
+
+Must have a good profile editing functionality as well.
+
+Must have a edit profile functionality on which it can add image and edit information , both for student and teacher
+
+Admin can see all the activities of both teachers and Students
+
+It must follow the CRUD functionalities. 
+Good UI suitable for NU branding (gold and blue).
+Must have proper authentication.
+
+Use typescript
+All codes must follow restful principles

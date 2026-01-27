@@ -1,0 +1,21 @@
+{
+  "name": "ccit-wall",
+  "version": "1.0.0",
+  "description": "Social media platform for CCIT - National University Philippines",
+  "scripts": {
+    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm start\"",
+    "build": "cd backend && npm run build && cd ../frontend && npm run build"
+  },
+  "keywords": [
+    "MERN",
+    "social-media",
+    "university",
+    "college"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^7.6.0"
+  }
+}
