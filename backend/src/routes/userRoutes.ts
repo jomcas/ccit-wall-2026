@@ -10,16 +10,26 @@ import {
   searchUsers,
 } from '../controllers/userController';
 import { authMiddleware, adminMiddleware } from '../middleware/auth';
+import {
+  validateRegistration,
+  validateLogin,
+  validateProfileUpdate,
+  validateObjectId,
+  validateSearchQuery,
+} from '../middleware/validation';
 
 const router = Router();
 
-router.post('/register', register);
-router.post('/login', login);
+// Public routes with input validation
+router.post('/register', validateRegistration, register);
+router.post('/login', validateLogin, login);
+
+// Protected routes with input validation
 router.get('/profile', authMiddleware, getProfile);
-router.put('/profile', authMiddleware, updateProfile);
+router.put('/profile', authMiddleware, validateProfileUpdate, updateProfile);
 router.get('/users', authMiddleware, getAllUsers);
-router.get('/users/search', authMiddleware, searchUsers);
-router.get('/users/:id', authMiddleware, getUserById);
-router.delete('/users/:id', authMiddleware, adminMiddleware, deleteUser);
+router.get('/users/search', authMiddleware, validateSearchQuery, searchUsers);
+router.get('/users/:id', authMiddleware, validateObjectId, getUserById);
+router.delete('/users/:id', authMiddleware, adminMiddleware, validateObjectId, deleteUser);
 
 export default router;
