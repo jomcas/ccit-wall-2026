@@ -5,6 +5,7 @@ import { Post as PostType, Comment as CommentType } from '../types';
 import { FiHeart, FiMessageCircle, FiEdit2, FiTrash2, FiCheck, FiSend, FiX } from 'react-icons/fi';
 import { FaHeart } from 'react-icons/fa';
 import ConfirmDialog from './ConfirmDialog';
+import ImageLightbox from './ImageLightbox';
 import '../styles/index.css';
 
 interface PostProps {
@@ -34,6 +35,10 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
   const [deletePostDialogOpen, setDeletePostDialogOpen] = useState(false);
   const [deleteCommentDialogOpen, setDeleteCommentDialogOpen] = useState(false);
   const [commentToDelete, setCommentToDelete] = useState<string | null>(null);
+
+  // Image lightbox state
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -392,7 +397,10 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
                     src={imageUrl}
                     alt={`Attachment ${index + 1}`}
                     loading="lazy"
-                    onClick={() => window.open(imageUrl, '_blank')}
+                    onClick={() => {
+                      setLightboxIndex(index);
+                      setLightboxOpen(true);
+                    }}
                   />
                 </div>
               ))}
@@ -554,6 +562,17 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
           setCommentToDelete(null);
         }}
       />
+
+      {/* Image Lightbox */}
+      {post.attachments && post.attachments.length > 0 && (
+        <ImageLightbox
+          images={post.attachments}
+          currentIndex={lightboxIndex}
+          isOpen={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+          onNavigate={setLightboxIndex}
+        />
+      )}
     </div>
   );
 };

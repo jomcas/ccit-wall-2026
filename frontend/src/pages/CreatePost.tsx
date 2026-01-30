@@ -1,8 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { postService } from '../services/api';
 import { useSession } from '../contexts/SessionContext';
-import { FiLock, FiSend, FiImage, FiX } from 'react-icons/fi';
+import { FiLock, FiSend, FiImage, FiX, FiUploadCloud } from 'react-icons/fi';
 import '../styles/index.css';
 
 const CreatePost: React.FC = () => {
@@ -14,14 +14,14 @@ const CreatePost: React.FC = () => {
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { handleSessionExpired } = useSession();
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
-
+  // Shared file validation logic
+  const processFiles = useCallback((files: FileList | File[]) => {
     const newFiles = Array.from(files);
     const totalFiles = images.length + newFiles.length;
 
@@ -48,15 +48,71 @@ const CreatePost: React.FC = () => {
       validPreviews.push(URL.createObjectURL(file));
     }
 
-    setImages((prev) => [...prev, ...validFiles]);
-    setImagePreviews((prev) => [...prev, ...validPreviews]);
-    setError('');
+    if (validFiles.length > 0) {
+      setImages((prev) => [...prev, ...validFiles]);
+      setImagePreviews((prev) => [...prev, ...validPreviews]);
+      setError('');
+    }
+  }, [images.length]);
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    processFiles(files);
 
     // Reset the input so same file can be selected again
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
+
+  // Drag and drop handlers
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (images.length < 4) {
+      setIsDragging(true);
+    }
+  }, [images.length]);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only set dragging to false if we're leaving the drop zone entirely
+    if (dropZoneRef.current && !dropZoneRef.current.contains(e.relatedTarget as Node)) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    if (images.length >= 4) {
+      setError('You can only upload up to 4 images');
+      return;
+    }
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      // Filter only image files
+      const imageFiles = Array.from(files).filter(file => 
+        file.type.startsWith('image/')
+      );
+      if (imageFiles.length > 0) {
+        processFiles(imageFiles);
+      } else {
+        setError('Please drop image files only');
+      }
+    }
+  }, [images.length, processFiles]);
 
   const removeImage = (index: number) => {
     // Revoke the object URL to free memory
@@ -140,16 +196,39 @@ const CreatePost: React.FC = () => {
               style={{ display: 'none' }}
               id="image-upload"
             />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="image-upload-btn"
-              disabled={images.length >= 4}
+            
+            {/* Drag and Drop Zone */}
+            <div
+              ref={dropZoneRef}
+              className={`image-drop-zone ${isDragging ? 'dragging' : ''} ${images.length >= 4 ? 'disabled' : ''}`}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              onClick={() => images.length < 4 && fileInputRef.current?.click()}
             >
-              <FiImage size={18} />
-              <span>{images.length >= 4 ? 'Max 4 images' : 'Add Images'}</span>
-              {images.length > 0 && <span className="image-count">({images.length}/4)</span>}
-            </button>
+              <div className="drop-zone-content">
+                {isDragging ? (
+                  <>
+                    <FiUploadCloud size={32} className="drop-zone-icon active" />
+                    <span className="drop-zone-text">Drop images here</span>
+                  </>
+                ) : (
+                  <>
+                    <FiImage size={24} className="drop-zone-icon" />
+                    <span className="drop-zone-text">
+                      {images.length >= 4 ? 'Maximum 4 images reached' : 'Drag & drop images or click to browse'}
+                    </span>
+                    <span className="drop-zone-hint">
+                      JPEG, PNG, GIF, WebP up to 5MB each
+                    </span>
+                  </>
+                )}
+              </div>
+              {images.length > 0 && images.length < 4 && (
+                <span className="image-count-badge">{images.length}/4</span>
+              )}
+            </div>
 
             {/* Image Previews */}
             {imagePreviews.length > 0 && (
