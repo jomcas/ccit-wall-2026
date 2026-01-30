@@ -137,7 +137,8 @@ app.use(express.urlencoded({ extended: true }));
 // Static File Serving - Uploads Directory
 // ============================================================================
 // Serve uploaded files (images) from the uploads directory
-const uploadsPath = path.join(process.cwd(), 'uploads');
+// Use __dirname to ensure correct path regardless of working directory
+const uploadsPath = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadsPath)) {
   fs.mkdirSync(uploadsPath, { recursive: true });
 }
@@ -183,7 +184,8 @@ app.get('*', (req, res, next) => {
   }
   
   // Resolve absolute path to frontend build
-  const indexPath = path.resolve(process.cwd(), 'frontend/build/index.html');
+  // Use __dirname to ensure correct path regardless of working directory
+  const indexPath = path.join(__dirname, '..', '..', 'frontend', 'build', 'index.html');
   
   // Only serve index.html if it exists (production build)
   if (fs.existsSync(indexPath)) {
