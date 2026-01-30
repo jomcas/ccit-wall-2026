@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { authService, postService } from "../services/api";
 import { User, Post as PostType } from "../types";
 import PostComponent from "../components/Post";
+import { useSession } from "../contexts/SessionContext";
 import { FiAlertCircle, FiCheckCircle, FiInbox } from 'react-icons/fi';
 import "../styles/index.css";
 
@@ -13,6 +14,7 @@ const Profile: React.FC = () => {
   const [success, setSuccess] = useState("");
   const [posts, setPosts] = useState<PostType[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
+  const { handleSessionExpired } = useSession();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -24,12 +26,14 @@ const Profile: React.FC = () => {
 
   useEffect(() => {
     loadProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (user) {
       loadUserPosts();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const loadProfile = async () => {
@@ -44,7 +48,11 @@ const Profile: React.FC = () => {
         profilePicture: response.data.profilePicture || "",
         contactInformation: response.data.contactInformation || "",
       });
-    } catch (error) {
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        handleSessionExpired();
+        return;
+      }
       setError("Failed to load profile");
       console.error("Failed to load profile", error);
     } finally {
@@ -83,7 +91,11 @@ const Profile: React.FC = () => {
         return dateB - dateA;
       });
       setPosts(sortedPosts);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        handleSessionExpired();
+        return;
+      }
       console.error("Failed to load user posts", error);
     } finally {
       setPostsLoading(false);
@@ -110,6 +122,10 @@ const Profile: React.FC = () => {
       setSuccess("Profile updated successfully!");
       setEditing(false);
     } catch (error: any) {
+      if (error.response?.status === 401) {
+        handleSessionExpired();
+        return;
+      }
       setError(error.response?.data?.message || "Failed to update profile");
     }
   };

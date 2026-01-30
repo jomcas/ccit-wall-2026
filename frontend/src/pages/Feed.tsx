@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { postService, userService } from '../services/api';
 import { Post as PostType, User as UserType } from '../types';
 import PostComponent from '../components/Post';
-import { FiFileText, FiUsers, FiSearch, FiInbox } from 'react-icons/fi';
+import { useSession } from '../contexts/SessionContext';
+import { FiFileText, FiUsers, FiInbox } from 'react-icons/fi';
 import '../styles/index.css';
 
 const Feed: React.FC = () => {
@@ -14,7 +15,7 @@ const Feed: React.FC = () => {
   const [category, setCategory] = useState('');
   const [role, setRole] = useState('');
   const [searchType, setSearchType] = useState<'posts' | 'users'>('posts');
-  const [isSearching, setIsSearching] = useState(false);
+  const { handleSessionExpired } = useSession();
 
   useEffect(() => {
     if (searchType === 'posts') {
@@ -22,6 +23,7 @@ const Feed: React.FC = () => {
     } else {
       loadUsers();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category, role, searchType]);
 
   useEffect(() => {
@@ -33,8 +35,8 @@ const Feed: React.FC = () => {
       } else {
         setUsers([]);
       }
-      setIsSearching(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, searchType]);
 
   const loadPosts = async () => {
@@ -68,8 +70,12 @@ const Feed: React.FC = () => {
         return a.role.localeCompare(b.role);
       });
       setUsers(sortedUsers);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load users', error);
+      if (error.response?.status === 401) {
+        handleSessionExpired();
+        return;
+      }
     } finally {
       setLoading(false);
     }
@@ -83,7 +89,6 @@ const Feed: React.FC = () => {
       return;
     }
 
-    setIsSearching(true);
     setLoading(true);
     try {
       if (searchType === 'posts') {
@@ -97,7 +102,6 @@ const Feed: React.FC = () => {
       console.error('Failed to search', error);
     } finally {
       setLoading(false);
-      setIsSearching(false);
     }
   };
 
@@ -193,7 +197,7 @@ const Feed: React.FC = () => {
           </div>
         ) : (
           posts.map((post) => (
-            <PostComponent key={post.id} post={post} onPostDeleted={handlePostDeleted} onPostUpdated={handlePostUpdated} />
+            <PostComponent key={post._id || post.id} post={post} onPostDeleted={handlePostDeleted} onPostUpdated={handlePostUpdated} />
           ))
         )
       ) : (

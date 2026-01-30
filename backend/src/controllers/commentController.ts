@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import Comment from '../models/Comment';
 import Post from '../models/Post';
 import mongoose from 'mongoose';
+import { createNotification, deleteNotification } from '../utils/notificationHelper';
 
 export const createComment = async (req: Request, res: Response) => {
   try {
@@ -28,6 +29,21 @@ export const createComment = async (req: Request, res: Response) => {
 
     post.comments.push(comment._id);
     await post.save();
+
+    // Create notification for post author (if not commenting on own post)
+    const userObjectId = new mongoose.Types.ObjectId(req.user.userId);
+    console.log('=== COMMENT NOTIFICATION DEBUG ===');
+    console.log('Post author ID:', post.author.toString());
+    console.log('Comment author ID (sender):', userObjectId.toString());
+    console.log('Are they the same?', post.author.toString() === userObjectId.toString());
+    
+    await createNotification({
+      recipientId: post.author,
+      senderId: userObjectId,
+      type: 'post_commented',
+      postId: post._id as mongoose.Types.ObjectId,
+      commentId: comment._id as mongoose.Types.ObjectId,
+    });
 
     res.status(201).json({
       message: 'Comment created successfully',
@@ -122,9 +138,26 @@ export const likeComment = async (req: Request, res: Response) => {
     const likeIndex = comment.likes.findIndex(id => id.toString() === userIdStr);
 
     if (likeIndex > -1) {
+      // Unlike - remove the like
       comment.likes.splice(likeIndex, 1);
+      // Delete the notification
+      await deleteNotification({
+        recipientId: comment.author,
+        senderId: userObjectId,
+        type: 'comment_liked',
+        commentId: comment._id as mongoose.Types.ObjectId,
+      });
     } else {
+      // Like - add the like
       comment.likes.push(userObjectId);
+      // Create notification for comment author
+      await createNotification({
+        recipientId: comment.author,
+        senderId: userObjectId,
+        type: 'comment_liked',
+        postId: comment.post,
+        commentId: comment._id as mongoose.Types.ObjectId,
+      });
     }
 
     await comment.save();

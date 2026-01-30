@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { postService } from '../services/api';
-import { FiLock, FiSend } from 'react-icons/fi';
+import { useSession } from '../contexts/SessionContext';
+import { FiLock, FiSend, FiImage, FiX } from 'react-icons/fi';
 import '../styles/index.css';
 
 const CreatePost: React.FC = () => {
@@ -9,9 +10,60 @@ const CreatePost: React.FC = () => {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('general');
   const [isAnonymous, setIsAnonymous] = useState(false);
+  const [images, setImages] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  const { handleSessionExpired } = useSession();
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const newFiles = Array.from(files);
+    const totalFiles = images.length + newFiles.length;
+
+    if (totalFiles > 4) {
+      setError('You can only upload up to 4 images');
+      return;
+    }
+
+    // Validate file types and sizes
+    const validFiles: File[] = [];
+    const validPreviews: string[] = [];
+
+    for (const file of newFiles) {
+      const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!validTypes.includes(file.type)) {
+        setError('Only JPEG, PNG, GIF, and WebP images are allowed');
+        continue;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Each image must be less than 5MB');
+        continue;
+      }
+      validFiles.push(file);
+      validPreviews.push(URL.createObjectURL(file));
+    }
+
+    setImages((prev) => [...prev, ...validFiles]);
+    setImagePreviews((prev) => [...prev, ...validPreviews]);
+    setError('');
+
+    // Reset the input so same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeImage = (index: number) => {
+    // Revoke the object URL to free memory
+    URL.revokeObjectURL(imagePreviews[index]);
+    setImages((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,14 +71,29 @@ const CreatePost: React.FC = () => {
     setLoading(true);
 
     try {
-      await postService.createPost({
-        title,
-        description,
-        category,
-        isAnonymous,
+      // Create FormData for multipart upload
+      const formData = new FormData();
+      formData.append('title', title);
+      formData.append('description', description);
+      formData.append('category', category);
+      formData.append('isAnonymous', String(isAnonymous));
+
+      // Append images
+      images.forEach((image) => {
+        formData.append('images', image);
       });
+
+      await postService.createPost(formData);
+      
+      // Clean up image previews
+      imagePreviews.forEach((url) => URL.revokeObjectURL(url));
+      
       navigate('/');
     } catch (err: any) {
+      if (err.response?.status === 401) {
+        handleSessionExpired();
+        return;
+      }
       setError(err.response?.data?.message || 'Failed to create post');
     } finally {
       setLoading(false);
@@ -38,7 +105,7 @@ const CreatePost: React.FC = () => {
       <div className="card" style={{ padding: '40px' }}>
         <h2 className="page-title" style={{ textAlign: 'center', marginBottom: '8px' }}>Create New Post</h2>
         <p className="page-subtitle" style={{ textAlign: 'center', marginBottom: '32px' }}>Share something with the community</p>
-        {error && <div className="alert alert-error">⚠️ {error}</div>}
+        {error && <div className="alert alert-error">{error}</div>}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div className="form-group">
             <label>Title</label>
@@ -60,6 +127,50 @@ const CreatePost: React.FC = () => {
               style={{ minHeight: '140px' }}
             />
           </div>
+
+          {/* Image Upload Section */}
+          <div className="form-group">
+            <label>Images (optional)</label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              multiple
+              onChange={handleImageSelect}
+              style={{ display: 'none' }}
+              id="image-upload"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="image-upload-btn"
+              disabled={images.length >= 4}
+            >
+              <FiImage size={18} />
+              <span>{images.length >= 4 ? 'Max 4 images' : 'Add Images'}</span>
+              {images.length > 0 && <span className="image-count">({images.length}/4)</span>}
+            </button>
+
+            {/* Image Previews */}
+            {imagePreviews.length > 0 && (
+              <div className="image-preview-grid">
+                {imagePreviews.map((preview, index) => (
+                  <div key={index} className="image-preview-item">
+                    <img src={preview} alt={`Preview ${index + 1}`} />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(index)}
+                      className="image-remove-btn"
+                      aria-label="Remove image"
+                    >
+                      <FiX size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="form-group">
             <label>Category</label>
             <select

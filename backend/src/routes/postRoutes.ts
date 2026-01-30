@@ -18,11 +18,13 @@ import {
   validateReaction,
   validateSearchQuery,
 } from '../middleware/validation';
+import upload from '../middleware/upload';
 
 const router = Router();
 
-// Create post with validation
-router.post('/posts', authMiddleware, validateCreatePost, createPost);
+// Create post with image upload support (up to 4 images)
+// Note: upload.array() must come before validateCreatePost since it parses multipart/form-data
+router.post('/posts', authMiddleware, upload.array('images', 4), validateCreatePost, createPost);
 
 // Get all posts (public)
 router.get('/posts', getAllPosts);

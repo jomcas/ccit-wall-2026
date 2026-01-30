@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { authService } from '../services/api';
+import { authService, resetSessionExpiredFlag } from '../services/api';
 import { FiAlertCircle, FiLogIn } from 'react-icons/fi';
 import '../styles/index.css';
 
@@ -24,6 +24,8 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       const response = await authService.login(email, password);
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
+      // Reset the session expired flag on successful login
+      resetSessionExpiredFlag();
       onLoginSuccess();
       navigate('/');
     } catch (err: any) {

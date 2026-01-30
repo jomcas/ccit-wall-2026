@@ -34,10 +34,47 @@ export interface Comment {
   post: string;
   likes: string[];
   createdAt: Date;
+  updatedAt?: Date;
 }
 
 export interface AuthResponse {
   message: string;
   token: string;
   user: User;
+}
+
+export type NotificationType = 'post_liked' | 'post_commented' | 'comment_liked' | 'post_reaction';
+
+export interface Notification {
+  _id: string;
+  recipient: string;
+  sender: {
+    _id: string;
+    name: string;
+    profilePicture?: string;
+  };
+  type: NotificationType;
+  post?: {
+    _id: string;
+    title: string;
+  };
+  comment?: {
+    _id: string;
+    content: string;
+  };
+  reactionEmoji?: string;
+  read: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotificationResponse {
+  notifications: Notification[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
 }

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { FiUsers, FiShare2, FiBookOpen, FiMapPin, FiPhone, FiMail, FiGlobe, FiLogIn, FiUserPlus } from 'react-icons/fi';
+import { FiUsers, FiShare2, FiBookOpen, FiMapPin, FiLogIn, FiUserPlus } from 'react-icons/fi';
 import '../styles/LandingPage.css';
 
 const LandingPage: React.FC = () => {

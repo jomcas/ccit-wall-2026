@@ -11,7 +11,7 @@ import CIDR from 'ip-cidr';
  * HTTP Method Restriction Middleware
  * 
  * Restricts which HTTP methods are allowed on the server.
- * - Allowed by default: GET, POST, HEAD
+ * - Allowed by default: GET, POST, PUT, PATCH, DELETE, HEAD
  * - If CORS is enabled (ENABLE_CORS=true), OPTIONS is also allowed
  * 
  * Returns 405 Method Not Allowed for disallowed methods.
@@ -23,7 +23,7 @@ export const restrictHttpMethods = (req: Request, res: Response, next: NextFunct
   const enableCors = process.env.ENABLE_CORS === 'true';
   
   // Base allowed methods
-  const allowedMethods = new Set(['GET', 'POST', 'PUT', 'DELETE', 'HEAD']);
+  const allowedMethods = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD']);
   
   // Add OPTIONS if CORS is enabled (detected by presence of CORS middleware or env flag)
   if (enableCors) {

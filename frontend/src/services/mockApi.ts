@@ -1,14 +1,9 @@
-import axios, { AxiosRequestConfig } from 'axios';
 import {
   mockUsers,
   mockPosts,
   mockComments,
-  mockAuthResponse,
 } from './mockData';
 import { User, Post, Comment, AuthResponse } from '../types';
-
-// Use mock data if environment variable is set
-const USE_MOCK_DATA = process.env.REACT_APP_USE_MOCK_DATA === 'true';
 
 // Simulated delay for mock responses
 const MOCK_DELAY = 300;

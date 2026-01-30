@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import Post from '../models/Post';
 import Comment from '../models/Comment';
 import mongoose from 'mongoose';
+import { createNotification, deleteNotification } from '../utils/notificationHelper';
 
 export const createPost = async (req: Request, res: Response) => {
   try {
@@ -9,11 +10,21 @@ export const createPost = async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Unauthorized' });
     }
     
-    const { title, description, category, isAnonymous, attachments } = req.body;
+    const { title, description, category, isAnonymous } = req.body;
+
+    // Process uploaded files (if any)
+    let attachments: string[] = [];
+    if (req.files && Array.isArray(req.files)) {
+      // Construct URLs for uploaded files
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      attachments = (req.files as Express.Multer.File[]).map(
+        (file) => `${baseUrl}/uploads/${file.filename}`
+      );
+    }
 
     // Teachers can only post public posts (announcements and reminders)
     // Enforce isAnonymous=false for teachers
-    const postIsAnonymous = req.user.role === 'teacher' ? false : (isAnonymous || false);
+    const postIsAnonymous = req.user.role === 'teacher' ? false : (isAnonymous === 'true' || isAnonymous === true || false);
 
     const post = new Post({
       title,
@@ -152,10 +163,31 @@ export const likePost = async (req: Request, res: Response) => {
     const userObjectId = new mongoose.Types.ObjectId(req.user.userId);
     const likeIndex = post.likes.findIndex(id => id.toString() === userIdStr);
 
+    console.log('=== LIKE POST NOTIFICATION DEBUG ===');
+    console.log('Post author ID:', post.author.toString());
+    console.log('User liking (sender):', userObjectId.toString());
+    console.log('Are they the same?', post.author.toString() === userObjectId.toString());
+
     if (likeIndex > -1) {
+      // Unlike - remove the like
       post.likes.splice(likeIndex, 1);
+      // Delete the notification
+      await deleteNotification({
+        recipientId: post.author,
+        senderId: userObjectId,
+        type: 'post_liked',
+        postId: post._id as mongoose.Types.ObjectId,
+      });
     } else {
+      // Like - add the like
       post.likes.push(userObjectId);
+      // Create notification for post author
+      await createNotification({
+        recipientId: post.author,
+        senderId: userObjectId,
+        type: 'post_liked',
+        postId: post._id as mongoose.Types.ObjectId,
+      });
     }
 
     await post.save();
@@ -192,9 +224,26 @@ export const addReaction = async (req: Request, res: Response) => {
     const reactionIndex = userReactions.findIndex(id => id.toString() === userIdStr);
 
     if (reactionIndex > -1) {
+      // Remove reaction
       userReactions.splice(reactionIndex, 1);
+      // Delete the notification
+      await deleteNotification({
+        recipientId: post.author,
+        senderId: userObjectId,
+        type: 'post_reaction',
+        postId: post._id as mongoose.Types.ObjectId,
+      });
     } else {
+      // Add reaction
       userReactions.push(userObjectId);
+      // Create notification for post author
+      await createNotification({
+        recipientId: post.author,
+        senderId: userObjectId,
+        type: 'post_reaction',
+        postId: post._id as mongoose.Types.ObjectId,
+        reactionEmoji: emoji,
+      });
     }
 
     post.reactions.set(emoji, userReactions);

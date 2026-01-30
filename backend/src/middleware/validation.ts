@@ -289,3 +289,32 @@ export const validateResetPassword = [
     .matches(/[@$!%*?&]/).withMessage('Password must contain at least one special character (@$!%*?&)'),
   handleValidationErrors
 ];
+
+// ============================================================================
+// NOTIFICATION VALIDATION
+// ============================================================================
+
+/**
+ * Validation for notification ID parameter.
+ */
+export const validateNotificationId = [
+  param('id')
+    .isMongoId().withMessage('Invalid notification ID format'),
+  handleValidationErrors
+];
+
+/**
+ * Validation for getting notifications with pagination.
+ */
+export const validateGetNotifications = [
+  query('page')
+    .optional()
+    .isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
+  query('unreadOnly')
+    .optional()
+    .isBoolean().withMessage('unreadOnly must be a boolean'),
+  handleValidationErrors
+];

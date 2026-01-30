@@ -4,6 +4,14 @@ import { mockApiService } from './mockApi';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const USE_MOCK_DATA = process.env.REACT_APP_USE_MOCK_DATA === 'true';
 
+// Track if we've already detected an expired session to prevent duplicate handling
+let sessionExpiredHandled = false;
+
+// Function to reset the session expired flag (call this on successful login)
+export const resetSessionExpiredFlag = () => {
+  sessionExpiredHandled = false;
+};
+
 const api = axios.create({
   baseURL: API_URL,
   withCredentials: true,
@@ -12,13 +20,39 @@ const api = axios.create({
   },
 });
 
+// Request interceptor - skip requests if session already expired
 api.interceptors.request.use((config) => {
+  // If session is already expired and token is cleared, cancel the request
   const token = localStorage.getItem('token');
+  if (!token && sessionExpiredHandled) {
+    // Return a cancelled request
+    const controller = new AbortController();
+    controller.abort();
+    return {
+      ...config,
+      signal: controller.signal,
+    };
+  }
+  
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
+
+// Response interceptor - mark session as expired on 401
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && !sessionExpiredHandled) {
+      sessionExpiredHandled = true;
+      // Clear token immediately to prevent further requests
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Use mock API if enabled
 const apiService = USE_MOCK_DATA ? mockApiService : {
@@ -39,7 +73,19 @@ const apiService = USE_MOCK_DATA ? mockApiService : {
     api.get('/posts', { params: { search, category } }),
   getPostById: (id: string) => api.get(`/posts/${id}`),
   searchPosts: (query: string) => api.get('/posts/search', { params: { query } }),
-  createPost: (data: any) => api.post('/posts', data),
+  // createPost now accepts FormData for image uploads
+  createPost: (data: FormData | any) => {
+    // If data is FormData (has images), use multipart/form-data
+    if (data instanceof FormData) {
+      return api.post('/posts', data, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+    }
+    // Otherwise use JSON
+    return api.post('/posts', data);
+  },
   updatePost: (id: string, data: any) => api.put(`/posts/${id}`, data),
   deletePost: (id: string) => api.delete(`/posts/${id}`),
   likePost: (id: string) => api.post(`/posts/${id}/like`),
@@ -114,6 +160,16 @@ export const adminService = {
     apiService.getUserActivity(userId),
   searchUsers: (query: string) => apiService.adminSearchUsers(query),
   searchPosts: (query: string) => apiService.adminSearchPosts(query),
+};
+
+// Notification Services
+export const notificationService = {
+  getNotifications: (page: number = 1, limit: number = 20, unreadOnly: boolean = false) =>
+    api.get('/notifications', { params: { page, limit, unreadOnly } }),
+  getUnreadCount: () => api.get('/notifications/unread-count'),
+  markAsRead: (id: string) => api.put(`/notifications/${id}/read`),
+  markAllAsRead: () => api.put('/notifications/read-all'),
+  deleteNotification: (id: string) => api.delete(`/notifications/${id}`),
 };
 
 export default api;

@@ -9,6 +9,9 @@ import Feed from './pages/Feed';
 import CreatePost from './pages/CreatePost';
 import Profile from './pages/Profile';
 import UserProfile from './pages/UserProfile';
+import Notifications from './pages/Notifications';
+import NotificationBell from './components/NotificationBell';
+import { SessionProvider } from './contexts/SessionContext';
 import { FiHome, FiPlusCircle, FiLogOut, FiLogIn, FiUserPlus, FiUser } from 'react-icons/fi';
 import './styles/index.css';
 
@@ -37,6 +40,7 @@ const Header: React.FC<{
               <Link to="/feed" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><FiHome size={16} /> Feed</Link>
               <Link to="/profile" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><FiUser size={16} /> Profile </Link>
               <Link to="/create"><span className="user-name-badge"><FiPlusCircle size={16} style={{ marginRight: '6px' }} /> Create Post</span></Link>
+              <NotificationBell />
               <button
                 onClick={onLogout}
                 className="button button-secondary"
@@ -46,6 +50,7 @@ const Header: React.FC<{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
+                  marginLeft: '8px'
                 }}
               >
                 <FiLogOut size={16} /> Logout
@@ -65,7 +70,7 @@ const Header: React.FC<{
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [, setUser] = useState<any>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -93,33 +98,36 @@ const App: React.FC = () => {
 
   return (
     <Router>
-      <div>
-        <Header isAuthenticated={isAuthenticated} onLogout={handleLogout} />
+      <SessionProvider>
+        <div>
+          <Header isAuthenticated={isAuthenticated} onLogout={handleLogout} />
 
-        <Routes>
-          {isAuthenticated ? (
-            <>
-              <Route path="/" element={<Navigate to="/feed" replace />} />
-              <Route path="/feed" element={<Feed />} />
-              <Route path="/create" element={<CreatePost />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/user/:userId" element={<UserProfile />} />
-              <Route path="/login" element={<Navigate to="/feed" replace />} />
-              <Route path="/register" element={<Navigate to="/feed" replace />} />
-              <Route path="*" element={<Navigate to="/feed" replace />} />
-            </>
-          ) : (
-            <>
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />
-              <Route path="/register" element={<Register onRegisterSuccess={handleLoginSuccess} />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/reset-password/:token" element={<ResetPassword />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </>
-          )}
-        </Routes>
-      </div>
+          <Routes>
+            {isAuthenticated ? (
+              <>
+                <Route path="/" element={<Navigate to="/feed" replace />} />
+                <Route path="/feed" element={<Feed />} />
+                <Route path="/create" element={<CreatePost />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/user/:userId" element={<UserProfile />} />
+                <Route path="/notifications" element={<Notifications />} />
+                <Route path="/login" element={<Navigate to="/feed" replace />} />
+                <Route path="/register" element={<Navigate to="/feed" replace />} />
+                <Route path="*" element={<Navigate to="/feed" replace />} />
+              </>
+            ) : (
+              <>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />
+                <Route path="/register" element={<Register onRegisterSuccess={handleLoginSuccess} />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password/:token" element={<ResetPassword />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </>
+            )}
+          </Routes>
+        </div>
+      </SessionProvider>
     </Router>
   );
 };

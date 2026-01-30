@@ -9,8 +9,10 @@ import userRoutes from './routes/userRoutes';
 import postRoutes from './routes/postRoutes';
 import commentRoutes from './routes/commentRoutes';
 import adminRoutes from './routes/adminRoutes';
+import notificationRoutes from './routes/notificationRoutes';
 import { restrictHttpMethods, ipAllowlist } from './middleware/security';
-import path from 'path/win32';
+import path from 'path';
+import fs from 'fs';
 
 dotenv.config();
 
@@ -132,6 +134,16 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ============================================================================
+// Static File Serving - Uploads Directory
+// ============================================================================
+// Serve uploaded files (images) from the uploads directory
+const uploadsPath = path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadsPath)) {
+  fs.mkdirSync(uploadsPath, { recursive: true });
+}
+app.use('/uploads', express.static(uploadsPath));
+
+// ============================================================================
 // Database Connection
 // ============================================================================
 mongoose
@@ -149,6 +161,7 @@ mongoose
 app.use('/api/auth', userRoutes);
 app.use('/api', postRoutes);
 app.use('/api', commentRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Admin routes with IP allowlist middleware (when enabled)
 app.use('/api/admin', ipAllowlist, adminRoutes);
@@ -162,18 +175,25 @@ app.get('/health', (req, res) => {
   res.json({ status: 'CCIT Wall API is running' });
 });
 
-app.get('*', (req, res) => {
-  const indexPath = path.join(__dirname, '../../frontend/build/index.html');
+// Serve frontend in production - MUST be after all API routes
+app.get('*', (req, res, next) => {
+  // Don't intercept API routes - let them fall through to 404 handler
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({ error: 'Not Found', message: 'API endpoint not found' });
+  }
+  
+  // Resolve absolute path to frontend build
+  const indexPath = path.resolve(process.cwd(), 'frontend/build/index.html');
+  
   // Only serve index.html if it exists (production build)
-  res.sendFile(indexPath, (err) => {
-    if (err) {
-      // If build doesn't exist, send 404
-      res.status(404).json({ 
-        error: 'Not Found',
-        message: 'Frontend build not found. Run `npm run build` in frontend directory for production.'
-      });
-    }
-  });
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).json({ 
+      error: 'Not Found',
+      message: 'Frontend build not found. Run `npm run build` in frontend directory for production.'
+    });
+  }
 });
 
 // ============================================================================
