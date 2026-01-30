@@ -54,6 +54,26 @@ export const mockApiService = {
     };
   },
 
+  forgotPassword: async (email: string) => {
+    await delay(MOCK_DELAY);
+    // Always return success to prevent email enumeration
+    return {
+      data: {
+        message: 'If an account with that email exists, a password reset link has been sent.',
+      },
+    };
+  },
+
+  resetPassword: async (token: string, password: string) => {
+    await delay(MOCK_DELAY);
+    // Simulate successful password reset
+    return {
+      data: {
+        message: 'Password has been reset successfully.',
+      },
+    };
+  },
+
   getProfile: async () => {
     await delay(MOCK_DELAY);
     return { data: mockUsers[0] };

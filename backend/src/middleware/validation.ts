@@ -251,3 +251,41 @@ export const validatePostIdParam = [
     .isMongoId().withMessage('Invalid post ID format'),
   handleValidationErrors
 ];
+
+// ============================================================================
+// PASSWORD RESET VALIDATION
+// ============================================================================
+
+/**
+ * Validation rules for forgot password request.
+ * - email: Must be a valid email format
+ */
+export const validateForgotPassword = [
+  body('email')
+    .trim()
+    .notEmpty().withMessage('Email is required')
+    .isEmail().withMessage('Please provide a valid email address')
+    .normalizeEmail(),
+  handleValidationErrors
+];
+
+/**
+ * Validation rules for reset password.
+ * - token: Required, must be a valid hex string (64 characters)
+ * - password: Minimum 8 characters with complexity requirements
+ */
+export const validateResetPassword = [
+  param('token')
+    .trim()
+    .notEmpty().withMessage('Reset token is required')
+    .isLength({ min: 64, max: 64 }).withMessage('Invalid reset token format')
+    .isHexadecimal().withMessage('Invalid reset token format'),
+  body('password')
+    .notEmpty().withMessage('Password is required')
+    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters long')
+    .matches(/[a-z]/).withMessage('Password must contain at least one lowercase letter')
+    .matches(/[A-Z]/).withMessage('Password must contain at least one uppercase letter')
+    .matches(/\d/).withMessage('Password must contain at least one number')
+    .matches(/[@$!%*?&]/).withMessage('Password must contain at least one special character (@$!%*?&)'),
+  handleValidationErrors
+];

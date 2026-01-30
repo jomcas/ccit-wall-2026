@@ -8,6 +8,8 @@ export interface IUser extends Document {
   bio?: string;
   profilePicture?: string;
   contactInformation?: string;
+  passwordResetToken?: string;
+  passwordResetExpires?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -25,6 +27,8 @@ const UserSchema: Schema = new Schema(
     bio: { type: String },
     profilePicture: { type: String },
     contactInformation: { type: String },
+    passwordResetToken: { type: String },
+    passwordResetExpires: { type: Date },
   },
   { timestamps: true }
 );

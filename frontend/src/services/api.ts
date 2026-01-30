@@ -26,6 +26,10 @@ const apiService = USE_MOCK_DATA ? mockApiService : {
     api.post('/auth/register', { name, email, password, role }),
   login: (email: string, password: string) =>
     api.post('/auth/login', { email, password }),
+  forgotPassword: (email: string) =>
+    api.post('/auth/forgot-password', { email }),
+  resetPassword: (token: string, password: string) =>
+    api.post(`/auth/reset-password/${token}`, { password }),
   getProfile: () => api.get('/auth/profile'),
   updateProfile: (data: any) => api.put('/auth/profile', data),
   getAllUsers: () => api.get('/auth/users'),
@@ -62,6 +66,10 @@ export const authService = {
     apiService.register(name, email, password, role),
   login: (email: string, password: string) =>
     apiService.login(email, password),
+  forgotPassword: (email: string) =>
+    apiService.forgotPassword(email),
+  resetPassword: (token: string, password: string) =>
+    apiService.resetPassword(token, password),
   getProfile: () => apiService.getProfile(),
   updateProfile: (data: any) => apiService.updateProfile(data),
 };

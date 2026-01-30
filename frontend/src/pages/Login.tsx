@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { authService } from '../services/api';
 import { FiAlertCircle, FiLogIn } from 'react-icons/fi';
 import '../styles/index.css';
@@ -60,12 +60,25 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
               placeholder="Enter your password"
             />
           </div>
-          <button type="submit" className="button button-primary" disabled={loading} style={{ width: '100%', marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+          <div style={{ textAlign: 'right', marginBottom: '16px' }}>
+            <Link 
+              to="/forgot-password" 
+              style={{ 
+                color: 'var(--primary-blue)', 
+                fontSize: '14px', 
+                textDecoration: 'none',
+                fontWeight: '500'
+              }}
+            >
+              Forgot Password?
+            </Link>
+          </div>
+          <button type="submit" className="button button-primary" disabled={loading} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
             <FiLogIn size={16} /> {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
         <p style={{ marginTop: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-          Don't have an account? <a href="/register" style={{ color: 'var(--primary-blue)', fontWeight: '600', textDecoration: 'none' }}>Register here</a>
+          Don't have an account? <Link to="/register" style={{ color: 'var(--primary-blue)', fontWeight: '600', textDecoration: 'none' }}>Register here</Link>
         </p>
       </div>
     </div>
