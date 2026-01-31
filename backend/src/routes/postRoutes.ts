@@ -35,8 +35,8 @@ router.get('/posts/search', authMiddleware, validateSearchQuery, searchPosts);
 // Get single post with ID validation
 router.get('/posts/:id', validatePostId, getPostById);
 
-// Update post with validation
-router.put('/posts/:id', authMiddleware, validatePostId, validateUpdatePost, updatePost);
+// Update post with validation and image upload support
+router.put('/posts/:id', authMiddleware, upload.array('images', 4), validatePostId, validateUpdatePost, updatePost);
 
 // Delete post with ID validation
 router.delete('/posts/:id', authMiddleware, validatePostId, deletePost);

@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { postService, commentService } from '../services/api';
 import { Post as PostType, Comment as CommentType } from '../types';
-import { FiHeart, FiMessageCircle, FiEdit2, FiTrash2, FiCheck, FiSend, FiX } from 'react-icons/fi';
+import { FiHeart, FiMessageCircle, FiEdit2, FiTrash2, FiCheck, FiSend, FiX, FiImage, FiUploadCloud } from 'react-icons/fi';
 import { FaHeart } from 'react-icons/fa';
 import ConfirmDialog from './ConfirmDialog';
 import ImageLightbox from './ImageLightbox';
@@ -40,6 +40,14 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
+  // Image editing state
+  const [editExistingImages, setEditExistingImages] = useState<string[]>([]);
+  const [editNewImages, setEditNewImages] = useState<File[]>([]);
+  const [editNewImagePreviews, setEditNewImagePreviews] = useState<string[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
+
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
   // Format time ago helper
@@ -53,6 +61,131 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
     if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
     return commentDate.toLocaleDateString();
+  };
+
+  // Get total image count for edit mode
+  const getTotalEditImageCount = useCallback(() => {
+    return editExistingImages.length + editNewImages.length;
+  }, [editExistingImages.length, editNewImages.length]);
+
+  // Process files for edit mode (shared validation logic)
+  const processEditFiles = useCallback((files: FileList | File[]) => {
+    const newFiles = Array.from(files);
+    const totalFiles = getTotalEditImageCount() + newFiles.length;
+
+    if (totalFiles > 4) {
+      alert('You can only have up to 4 images');
+      return;
+    }
+
+    const validFiles: File[] = [];
+    const validPreviews: string[] = [];
+
+    for (const file of newFiles) {
+      const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!validTypes.includes(file.type)) {
+        alert('Only JPEG, PNG, GIF, and WebP images are allowed');
+        continue;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Each image must be less than 5MB');
+        continue;
+      }
+      validFiles.push(file);
+      validPreviews.push(URL.createObjectURL(file));
+    }
+
+    if (validFiles.length > 0) {
+      setEditNewImages((prev) => [...prev, ...validFiles]);
+      setEditNewImagePreviews((prev) => [...prev, ...validPreviews]);
+    }
+  }, [getTotalEditImageCount]);
+
+  // Handle file input change in edit mode
+  const handleEditImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    processEditFiles(files);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Remove existing image in edit mode
+  const removeExistingImage = (index: number) => {
+    setEditExistingImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Remove new image in edit mode
+  const removeNewImage = (index: number) => {
+    URL.revokeObjectURL(editNewImagePreviews[index]);
+    setEditNewImages((prev) => prev.filter((_, i) => i !== index));
+    setEditNewImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Drag and drop handlers for edit mode
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (getTotalEditImageCount() < 4) {
+      setIsDragging(true);
+    }
+  }, [getTotalEditImageCount]);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (dropZoneRef.current && !dropZoneRef.current.contains(e.relatedTarget as Node)) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    if (getTotalEditImageCount() >= 4) {
+      alert('You can only have up to 4 images');
+      return;
+    }
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+      if (imageFiles.length > 0) {
+        processEditFiles(imageFiles);
+      } else {
+        alert('Please drop image files only');
+      }
+    }
+  }, [getTotalEditImageCount, processEditFiles]);
+
+  // Initialize edit mode with current images
+  const enterEditMode = () => {
+    setIsEditMode(true);
+    setEditTitle(post.title);
+    setEditDescription(post.description);
+    setEditExistingImages(post.attachments || []);
+    setEditNewImages([]);
+    setEditNewImagePreviews([]);
+  };
+
+  // Cancel edit mode and cleanup
+  const cancelEditMode = () => {
+    setIsEditMode(false);
+    setEditTitle(post.title);
+    setEditDescription(post.description);
+    // Cleanup preview URLs
+    editNewImagePreviews.forEach((url) => URL.revokeObjectURL(url));
+    setEditExistingImages([]);
+    setEditNewImages([]);
+    setEditNewImagePreviews([]);
   };
 
   useEffect(() => {
@@ -153,20 +286,37 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
       const postId = post._id || post.id;
       if (!postId) throw new Error('Post ID is missing');
 
-      const updatedResponse = await postService.updatePost(postId, {
-        title: editTitle,
-        description: editDescription,
+      // Use FormData to handle image updates
+      const formData = new FormData();
+      formData.append('title', editTitle);
+      formData.append('description', editDescription);
+      
+      // Send existing images that should be kept
+      formData.append('existingImages', JSON.stringify(editExistingImages));
+      
+      // Append new images
+      editNewImages.forEach((image) => {
+        formData.append('images', image);
       });
+
+      const updatedResponse = await postService.updatePost(postId, formData);
+
+      // Cleanup preview URLs
+      editNewImagePreviews.forEach((url) => URL.revokeObjectURL(url));
 
       // Merge the updated data with existing post to preserve all fields
       const updatedPost = {
         ...post,
-        ...updatedResponse.data,
+        ...updatedResponse.data.post,
         title: editTitle,
         description: editDescription,
       };
 
       setIsEditMode(false);
+      setEditNewImages([]);
+      setEditNewImagePreviews([]);
+      setEditExistingImages([]);
+      
       if (onPostUpdated) {
         onPostUpdated(updatedPost);
       }
@@ -322,6 +472,88 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
               }}
             />
           </div>
+
+          {/* Image Editing Section */}
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '14px' }}>Images</label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              multiple
+              onChange={handleEditImageSelect}
+              style={{ display: 'none' }}
+            />
+            
+            {/* Drag and Drop Zone */}
+            <div
+              ref={dropZoneRef}
+              className={`image-drop-zone ${isDragging ? 'dragging' : ''} ${getTotalEditImageCount() >= 4 ? 'disabled' : ''}`}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              onClick={() => getTotalEditImageCount() < 4 && fileInputRef.current?.click()}
+            >
+              <div className="drop-zone-content">
+                {isDragging ? (
+                  <>
+                    <FiUploadCloud size={32} className="drop-zone-icon active" />
+                    <span className="drop-zone-text">Drop images here</span>
+                  </>
+                ) : (
+                  <>
+                    <FiImage size={24} className="drop-zone-icon" />
+                    <span className="drop-zone-text">
+                      {getTotalEditImageCount() >= 4 ? 'Maximum 4 images reached' : 'Drag & drop images or click to browse'}
+                    </span>
+                    <span className="drop-zone-hint">
+                      JPEG, PNG, GIF, WebP up to 5MB each
+                    </span>
+                  </>
+                )}
+              </div>
+              {getTotalEditImageCount() > 0 && getTotalEditImageCount() < 4 && (
+                <span className="image-count-badge">{getTotalEditImageCount()}/4</span>
+              )}
+            </div>
+
+            {/* Existing Images Preview */}
+            {(editExistingImages.length > 0 || editNewImagePreviews.length > 0) && (
+              <div className="image-preview-grid" style={{ marginTop: '12px' }}>
+                {/* Show existing images */}
+                {editExistingImages.map((imageUrl, index) => (
+                  <div key={`existing-${index}`} className="image-preview-item">
+                    <img src={imageUrl} alt={`Existing ${index + 1}`} />
+                    <button
+                      type="button"
+                      onClick={() => removeExistingImage(index)}
+                      className="image-remove-btn"
+                      aria-label="Remove image"
+                    >
+                      <FiX size={14} />
+                    </button>
+                  </div>
+                ))}
+                {/* Show new images */}
+                {editNewImagePreviews.map((preview, index) => (
+                  <div key={`new-${index}`} className="image-preview-item">
+                    <img src={preview} alt={`New ${index + 1}`} />
+                    <button
+                      type="button"
+                      onClick={() => removeNewImage(index)}
+                      className="image-remove-btn"
+                      aria-label="Remove image"
+                    >
+                      <FiX size={14} />
+                    </button>
+                    <span className="image-new-badge">New</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div style={{ display: 'flex', gap: '12px' }}>
             <button
               onClick={handleUpdatePost}
@@ -332,11 +564,7 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
               {isSaving ? 'Saving...' : 'Save Changes'}
             </button>
             <button
-              onClick={() => {
-                setIsEditMode(false);
-                setEditTitle(post.title);
-                setEditDescription(post.description);
-              }}
+              onClick={cancelEditMode}
               className="button btn-ghost"
               disabled={isSaving}
             >
@@ -369,7 +597,7 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
             {(user.id === post.author?.id || user.id === post.author?._id) && (
               <div className="post-actions">
                 <button
-                  onClick={() => setIsEditMode(true)}
+                  onClick={enterEditMode}
                   className="btn-post-action"
                   title="Edit post"
                 >

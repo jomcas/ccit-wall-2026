@@ -93,7 +93,7 @@ export const updatePost = async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Unauthorized' });
     }
     
-    const { title, description, category, isAnonymous } = req.body;
+    const { title, description, category, isAnonymous, existingImages } = req.body;
     const post = await Post.findById(req.params.id);
 
     if (!post) {
@@ -112,7 +112,41 @@ export const updatePost = async (req: Request, res: Response) => {
     if (req.user.role === 'teacher') {
       post.isAnonymous = false;
     } else if (isAnonymous !== undefined) {
-      post.isAnonymous = isAnonymous;
+      post.isAnonymous = isAnonymous === 'true' || isAnonymous === true;
+    }
+
+    // Handle image updates
+    // existingImages: JSON string array of URLs to keep from original attachments
+    // req.files: new images being uploaded
+    let updatedAttachments: string[] = [];
+
+    // Parse existing images to keep (sent as JSON string or array)
+    if (existingImages) {
+      try {
+        const parsed = typeof existingImages === 'string' 
+          ? JSON.parse(existingImages) 
+          : existingImages;
+        if (Array.isArray(parsed)) {
+          updatedAttachments = parsed;
+        }
+      } catch {
+        // If parsing fails, ignore existingImages
+      }
+    }
+
+    // Add newly uploaded images
+    if (req.files && Array.isArray(req.files)) {
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const newImages = (req.files as Express.Multer.File[]).map(
+        (file) => `${baseUrl}/uploads/${file.filename}`
+      );
+      updatedAttachments = [...updatedAttachments, ...newImages];
+    }
+
+    // Only update attachments if images were modified (existingImages was provided or new files uploaded)
+    if (existingImages !== undefined || (req.files && Array.isArray(req.files) && req.files.length > 0)) {
+      // Limit to 4 images
+      post.attachments = updatedAttachments.slice(0, 4);
     }
 
     await post.save();

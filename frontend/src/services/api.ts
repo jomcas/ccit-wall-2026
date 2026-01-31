@@ -86,7 +86,19 @@ const apiService = USE_MOCK_DATA ? mockApiService : {
     // Otherwise use JSON
     return api.post('/posts', data);
   },
-  updatePost: (id: string, data: any) => api.put(`/posts/${id}`, data),
+  // updatePost now accepts FormData for image uploads
+  updatePost: (id: string, data: FormData | any) => {
+    // If data is FormData (has images), use multipart/form-data
+    if (data instanceof FormData) {
+      return api.put(`/posts/${id}`, data, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+    }
+    // Otherwise use JSON
+    return api.put(`/posts/${id}`, data);
+  },
   deletePost: (id: string) => api.delete(`/posts/${id}`),
   likePost: (id: string) => api.post(`/posts/${id}/like`),
   addReaction: (id: string, emoji: string) =>
