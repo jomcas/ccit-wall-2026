@@ -59,6 +59,7 @@ if (isProd && process.env.ENABLE_TRUST_PROXY !== 'false') {
 app.use(helmet({
   contentSecurityPolicy: false, // Disabled by default to avoid breaking existing assets
   crossOriginOpenerPolicy: { policy: 'same-origin' },
+  crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow images to be loaded cross-origin
   referrerPolicy: { policy: 'no-referrer' },
   frameguard: { action: 'sameorigin' }
 }));
