@@ -59,14 +59,10 @@ export const getUnreadCount = async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    console.log('Getting unread count for user:', req.user.userId);
-
     const count = await Notification.countDocuments({
       recipient: req.user.userId,
       read: false,
     });
-
-    console.log('Unread count:', count);
 
     res.json({ count });
   } catch (error) {

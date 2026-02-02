@@ -42,7 +42,6 @@ const NotificationBell: React.FC = () => {
     
     try {
       const response = await notificationService.getUnreadCount();
-      console.log('Unread count fetched:', response.data.count);
       setUnreadCount(response.data.count);
     } catch (error: any) {
       if (error.response?.status === 401) {
