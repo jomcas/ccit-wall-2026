@@ -2919,3 +2919,275 @@ form + .comments-list {
   }
 }
 
+/* ==============================================
+   EXPRESSIVE POSTS - Theme Styles
+   Facebook/Teams-style colored backgrounds
+   ============================================== */
+
+/* Theme Selector */
+.theme-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.theme-swatch {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+  border: 2px solid transparent;
+  outline: none;
+  flex-shrink: 0;
+}
+
+.theme-swatch:hover {
+  transform: scale(1.1);
+  box-shadow: var(--shadow-md);
+}
+
+.theme-swatch.selected {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 3px var(--primary-blue), var(--shadow-lg);
+}
+
+.theme-swatch.selected::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 14px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+}
+
+/* Theme hint text */
+.theme-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 8px;
+}
+
+/* Theme Preview in CreatePost */
+.theme-preview {
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  margin-bottom: 20px;
+  transition: all var(--transition-base);
+}
+
+.theme-preview-poster {
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.theme-preview-banner {
+  padding: 0;
+  overflow: hidden;
+}
+
+.theme-preview-banner-header {
+  padding: 20px 24px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.theme-preview-banner-content {
+  padding: 16px 24px;
+  background: var(--light-gray);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+/* Character counter */
+.char-counter {
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-align: right;
+  margin-top: 4px;
+}
+
+.char-counter.warning {
+  color: #f59e0b;
+}
+
+.char-counter.over {
+  color: #ef4444;
+}
+
+/* Themed Post - Poster Mode (Full Background) */
+.post-themed-poster {
+  border-radius: var(--radius-lg);
+  padding: 32px 24px;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  margin: -20px;
+  margin-bottom: 0;
+}
+
+.post-poster-title {
+  font-size: 1.25rem;
+  margin-bottom: 12px;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.post-poster-content {
+  line-height: 1.5;
+  font-weight: 500;
+  max-width: 100%;
+  word-break: break-word;
+}
+
+.post-poster-meta {
+  font-size: 12px;
+  margin-top: 16px;
+  opacity: 0.85;
+}
+
+.post-poster-meta a {
+  text-decoration: none;
+}
+
+.post-poster-meta a:hover {
+  text-decoration: underline;
+}
+
+/* Themed Post - Banner Mode (Header Only) */
+.post-themed-banner {
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: 20px 24px;
+  position: relative;
+  margin: -20px -20px 0 -20px;
+}
+
+.post-themed-banner h3 {
+  margin-bottom: 4px;
+}
+
+.post-themed-banner a {
+  text-decoration: none;
+}
+
+.post-themed-banner a:hover {
+  text-decoration: underline;
+}
+
+.post-banner-content {
+  padding: 16px 0 0 0;
+}
+
+/* Themed action buttons */
+.post-actions-themed {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-post-action-themed {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-post-action-themed:hover {
+  background: rgba(255, 255, 255, 0.35);
+  transform: scale(1.1);
+}
+
+.btn-post-action-themed.btn-post-delete:hover {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+/* Responsive adjustments for themed posts */
+@media (max-width: 768px) {
+  .theme-selector {
+    gap: 6px;
+  }
+
+  .theme-swatch {
+    width: 32px;
+    height: 32px;
+  }
+
+  .post-themed-poster {
+    padding: 24px 16px;
+    min-height: 160px;
+    margin: -16px;
+    margin-bottom: 0;
+  }
+
+  .post-poster-title {
+    font-size: 1.1rem;
+  }
+
+  .post-poster-content {
+    font-size: 1.1rem !important;
+  }
+
+  .post-themed-banner {
+    padding: 16px 20px;
+    margin: -16px -16px 0 -16px;
+  }
+
+  .theme-preview {
+    padding: 16px;
+  }
+
+  .theme-preview-poster {
+    min-height: 160px;
+  }
+}
+
+@media (max-width: 480px) {
+  .theme-swatch {
+    width: 28px;
+    height: 28px;
+  }
+
+  .theme-swatch.selected::after {
+    width: 12px;
+    height: 12px;
+  }
+
+  .post-themed-poster {
+    padding: 20px 12px;
+    min-height: 140px;
+    margin: -12px;
+    margin-bottom: 0;
+  }
+
+  .post-poster-content {
+    font-size: 1rem !important;
+  }
+
+  .post-themed-banner {
+    padding: 12px 16px;
+    margin: -12px -12px 0 -12px;
+  }
+
+  .btn-post-action-themed {
+    width: 28px;
+    height: 28px;
+  }
+}

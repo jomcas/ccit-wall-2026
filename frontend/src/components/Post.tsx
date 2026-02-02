@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { postService, commentService } from '../services/api';
 import { Post as PostType, Comment as CommentType } from '../types';
@@ -6,6 +6,7 @@ import { FiHeart, FiMessageCircle, FiEdit2, FiTrash2, FiCheck, FiSend, FiX, FiIm
 import { FaHeart } from 'react-icons/fa';
 import ConfirmDialog from './ConfirmDialog';
 import ImageLightbox from './ImageLightbox';
+import { getThemeById, getPostDisplayMode, PostDisplayMode, POST_THEMES, POSTER_MODE_MAX_LENGTH } from '../config/themes';
 import '../styles/index.css';
 
 interface PostProps {
@@ -49,6 +50,16 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
   const dropZoneRef = useRef<HTMLDivElement>(null);
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+  // Theme-related computed values
+  const theme = useMemo(() => getThemeById(post.theme), [post.theme]);
+  const displayMode = useMemo(
+    () => getPostDisplayMode(post.theme, post.description?.length || 0, (post.attachments?.length || 0) > 0),
+    [post.theme, post.description, post.attachments]
+  );
+
+  // Edit mode theme state
+  const [editTheme, setEditTheme] = useState(post.theme || 'none');
 
   // Format time ago helper
   const formatTimeAgo = (date: Date | string) => {
@@ -187,6 +198,7 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
     setEditExistingImages(post.attachments || []);
     setEditNewImages([]);
     setEditNewImagePreviews([]);
+    setEditTheme(post.theme || 'none');
   };
 
   // Cancel edit mode and cleanup
@@ -199,6 +211,7 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
     setEditExistingImages([]);
     setEditNewImages([]);
     setEditNewImagePreviews([]);
+    setEditTheme(post.theme || 'none');
   };
 
   useEffect(() => {
@@ -311,6 +324,7 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
       const formData = new FormData();
       formData.append('title', editTitle);
       formData.append('description', editDescription);
+      formData.append('theme', editTheme);
       
       // Send existing images that should be kept
       formData.append('existingImages', JSON.stringify(editExistingImages));
@@ -366,6 +380,7 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
         ...updatedResponse.data.post,
         title: editTitle,
         description: editDescription,
+        theme: editTheme,
       };
 
       setIsEditMode(false);
@@ -610,6 +625,36 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
             )}
           </div>
 
+          {/* Theme Selector */}
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '14px' }}>
+              Post Theme
+            </label>
+            <div className="theme-selector">
+              {POST_THEMES.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  className={`theme-swatch ${editTheme === t.id ? 'selected' : ''}`}
+                  style={{
+                    background: t.id === 'none' ? '#ffffff' : t.gradient,
+                    border: t.id === 'none' ? '2px dashed var(--border-color)' : 'none',
+                  }}
+                  onClick={() => setEditTheme(t.id)}
+                  title={t.name}
+                  aria-label={`Select ${t.name} theme`}
+                />
+              ))}
+            </div>
+            {editTheme !== 'none' && (
+              <p className="theme-hint" style={{ marginTop: '8px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                {editDescription.length <= POSTER_MODE_MAX_LENGTH && (editExistingImages.length + editNewImages.length) === 0
+                  ? 'Poster mode: Full gradient background'
+                  : 'Banner mode: Gradient header'}
+              </p>
+            )}
+          </div>
+
           <div style={{ display: 'flex', gap: '12px' }}>
             <button
               onClick={handleUpdatePost}
@@ -630,17 +675,92 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
         </div>
       ) : (
         <>
-          <div className="post-header">
-            <div>
-              <h3>{post.title}</h3>
-              <p style={{ fontSize: '12px', color: '#999' }}>
+          {/* Poster Mode: Full gradient background with centered content */}
+          {displayMode === 'poster' && (
+            <div 
+              className="post-themed-poster"
+              style={{ 
+                background: theme.gradient,
+                borderRadius: '12px',
+                padding: '32px 24px',
+                minHeight: '200px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                textAlign: 'center',
+                position: 'relative',
+              }}
+            >
+              {/* Edit/Delete buttons - positioned top right */}
+              {(user.id === post.author?.id || user.id === post.author?._id) && (
+                <div className="post-actions post-actions-themed" style={{ position: 'absolute', top: '12px', right: '12px' }}>
+                  <button
+                    onClick={enterEditMode}
+                    className="btn-post-action btn-post-action-themed"
+                    title="Edit post"
+                    style={{ color: theme.textColor }}
+                  >
+                    <FiEdit2 size={16} />
+                  </button>
+                  <button
+                    onClick={() => setDeletePostDialogOpen(true)}
+                    className="btn-post-action btn-post-action-themed btn-post-delete"
+                    title="Delete post"
+                    style={{ color: theme.textColor }}
+                  >
+                    <FiTrash2 size={16} />
+                  </button>
+                </div>
+              )}
+
+              {/* Title (optional in poster mode - hidden if same as description) */}
+              {post.title && post.title !== post.description && (
+                <h3 
+                  className="post-poster-title"
+                  style={{ 
+                    color: theme.textColor, 
+                    fontSize: '1.25rem',
+                    marginBottom: '12px',
+                    fontWeight: '600',
+                  }}
+                >
+                  {post.title}
+                </h3>
+              )}
+
+              {/* Main content - centered large text */}
+              <p 
+                className="post-poster-content"
+                style={{ 
+                  color: theme.textColor,
+                  fontSize: post.description.length < 100 ? '1.5rem' : '1.25rem',
+                  lineHeight: '1.5',
+                  fontWeight: '500',
+                  maxWidth: '100%',
+                  wordBreak: 'break-word',
+                }}
+              >
+                {post.description}
+              </p>
+
+              {/* Author info - bottom */}
+              <p 
+                className="post-poster-meta"
+                style={{ 
+                  fontSize: '12px', 
+                  color: theme.secondaryTextColor || theme.textColor,
+                  marginTop: '16px',
+                  opacity: 0.85,
+                }}
+              >
                 By{' '}
                 {post.isAnonymous ? (
                   'Anonymous'
                 ) : (
                   <Link
                     to={`/user/${post.author?._id || post.author?.id}`}
-                    style={{ color: '#1e40af', textDecoration: 'none', cursor: 'pointer' }}
+                    style={{ color: theme.textColor, textDecoration: 'none', cursor: 'pointer' }}
                     onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
                     onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
                   >
@@ -650,47 +770,156 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
                 • {new Date(post.createdAt).toLocaleDateString()}
               </p>
             </div>
-            {(user.id === post.author?.id || user.id === post.author?._id) && (
-              <div className="post-actions">
-                <button
-                  onClick={enterEditMode}
-                  className="btn-post-action"
-                  title="Edit post"
-                >
-                  <FiEdit2 size={16} />
-                </button>
-                <button
-                  onClick={() => setDeletePostDialogOpen(true)}
-                  className="btn-post-action btn-post-delete"
-                  title="Delete post"
-                >
-                  <FiTrash2 size={16} />
-                </button>
-              </div>
-            )}
-          </div>
-
-          <p style={{ marginBottom: '16px', lineHeight: '1.7', color: 'var(--text-primary)' }}>{post.description}</p>
-
-          {/* Image Attachments */}
-          {post.attachments && post.attachments.length > 0 && (
-            <div className={`post-images post-images-${Math.min(post.attachments.length, 4)}`}>
-              {post.attachments.slice(0, 4).map((imageUrl, index) => (
-                <div key={index} className="post-image-item">
-                  <img
-                    src={imageUrl}
-                    alt={`Attachment ${index + 1}`}
-                    loading="lazy"
-                    onClick={() => {
-                      setLightboxIndex(index);
-                      setLightboxOpen(true);
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
           )}
 
+          {/* Banner Mode: Gradient header with title, normal content below */}
+          {displayMode === 'banner' && (
+            <>
+              {/* Gradient Banner Header */}
+              <div 
+                className="post-themed-banner"
+                style={{ 
+                  background: theme.gradient,
+                  borderRadius: '12px 12px 0 0',
+                  padding: '20px 24px',
+                  marginBottom: '0',
+                  position: 'relative',
+                }}
+              >
+                {/* Edit/Delete buttons */}
+                {(user.id === post.author?.id || user.id === post.author?._id) && (
+                  <div className="post-actions post-actions-themed" style={{ position: 'absolute', top: '12px', right: '12px' }}>
+                    <button
+                      onClick={enterEditMode}
+                      className="btn-post-action btn-post-action-themed"
+                      title="Edit post"
+                      style={{ color: theme.textColor }}
+                    >
+                      <FiEdit2 size={16} />
+                    </button>
+                    <button
+                      onClick={() => setDeletePostDialogOpen(true)}
+                      className="btn-post-action btn-post-action-themed btn-post-delete"
+                      title="Delete post"
+                      style={{ color: theme.textColor }}
+                    >
+                      <FiTrash2 size={16} />
+                    </button>
+                  </div>
+                )}
+
+                <h3 style={{ color: theme.textColor, marginBottom: '4px' }}>{post.title}</h3>
+                <p style={{ fontSize: '12px', color: theme.secondaryTextColor || theme.textColor, opacity: 0.85 }}>
+                  By{' '}
+                  {post.isAnonymous ? (
+                    'Anonymous'
+                  ) : (
+                    <Link
+                      to={`/user/${post.author?._id || post.author?.id}`}
+                      style={{ color: theme.textColor, textDecoration: 'none', cursor: 'pointer' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+                      onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
+                    >
+                      {post.author?.name}
+                    </Link>
+                  )}{' '}
+                  • {new Date(post.createdAt).toLocaleDateString()}
+                </p>
+              </div>
+
+              {/* Normal Content Area */}
+              <div className="post-banner-content" style={{ padding: '16px 0 0 0' }}>
+                <p style={{ marginBottom: '16px', lineHeight: '1.7', color: 'var(--text-primary)' }}>{post.description}</p>
+
+                {/* Image Attachments */}
+                {post.attachments && post.attachments.length > 0 && (
+                  <div className={`post-images post-images-${Math.min(post.attachments.length, 4)}`}>
+                    {post.attachments.slice(0, 4).map((imageUrl, index) => (
+                      <div key={index} className="post-image-item">
+                        <img
+                          src={imageUrl}
+                          alt={`Attachment ${index + 1}`}
+                          loading="lazy"
+                          onClick={() => {
+                            setLightboxIndex(index);
+                            setLightboxOpen(true);
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Normal Mode: Standard post layout */}
+          {displayMode === 'normal' && (
+            <>
+              <div className="post-header">
+                <div>
+                  <h3>{post.title}</h3>
+                  <p style={{ fontSize: '12px', color: '#999' }}>
+                    By{' '}
+                    {post.isAnonymous ? (
+                      'Anonymous'
+                    ) : (
+                      <Link
+                        to={`/user/${post.author?._id || post.author?.id}`}
+                        style={{ color: '#1e40af', textDecoration: 'none', cursor: 'pointer' }}
+                        onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+                        onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
+                      >
+                        {post.author?.name}
+                      </Link>
+                    )}{' '}
+                    • {new Date(post.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+                {(user.id === post.author?.id || user.id === post.author?._id) && (
+                  <div className="post-actions">
+                    <button
+                      onClick={enterEditMode}
+                      className="btn-post-action"
+                      title="Edit post"
+                    >
+                      <FiEdit2 size={16} />
+                    </button>
+                    <button
+                      onClick={() => setDeletePostDialogOpen(true)}
+                      className="btn-post-action btn-post-delete"
+                      title="Delete post"
+                    >
+                      <FiTrash2 size={16} />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <p style={{ marginBottom: '16px', lineHeight: '1.7', color: 'var(--text-primary)' }}>{post.description}</p>
+
+              {/* Image Attachments */}
+              {post.attachments && post.attachments.length > 0 && (
+                <div className={`post-images post-images-${Math.min(post.attachments.length, 4)}`}>
+                  {post.attachments.slice(0, 4).map((imageUrl, index) => (
+                    <div key={index} className="post-image-item">
+                      <img
+                        src={imageUrl}
+                        alt={`Attachment ${index + 1}`}
+                        loading="lazy"
+                        onClick={() => {
+                          setLightboxIndex(index);
+                          setLightboxOpen(true);
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Engagement buttons - shared across all modes */}
           <div className="post-engagement">
             <button
               onClick={handleLike}
