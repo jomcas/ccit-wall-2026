@@ -8,6 +8,10 @@ import { Request, Response, NextFunction } from 'express';
 const handleValidationErrors = (req: Request, res: Response, next: NextFunction) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
+    console.log('=== VALIDATION ERRORS ===');
+    console.log('Path:', req.path);
+    console.log('Method:', req.method);
+    console.log('Errors:', errors.array());
     return res.status(400).json({ errors: errors.array() });
   }
   next();
@@ -138,6 +142,12 @@ export const validateCreatePost = [
     .isIn(['college-activities', 'general', 'extracurricular']).withMessage('Category must be one of: college-activities, general, extracurricular'),
   body('isAnonymous')
     .optional()
+    .customSanitizer(value => {
+      // Handle string 'true'/'false' from FormData
+      if (value === 'true') return true;
+      if (value === 'false') return false;
+      return value;
+    })
     .isBoolean().withMessage('isAnonymous must be a boolean value'),
   body('attachments')
     .optional()
@@ -175,6 +185,12 @@ export const validateUpdatePost = [
     .isIn(['college-activities', 'general', 'extracurricular']).withMessage('Category must be one of: college-activities, general, extracurricular'),
   body('isAnonymous')
     .optional()
+    .customSanitizer(value => {
+      // Handle string 'true'/'false' from FormData
+      if (value === 'true') return true;
+      if (value === 'false') return false;
+      return value;
+    })
     .isBoolean().withMessage('isAnonymous must be a boolean value'),
   body('attachments')
     .optional()

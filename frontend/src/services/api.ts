@@ -37,6 +37,12 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  // For FormData, delete Content-Type header so browser sets it with boundary
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type'];
+  }
+
   return config;
 });
 
@@ -75,28 +81,12 @@ const apiService = USE_MOCK_DATA ? mockApiService : {
   searchPosts: (query: string) => api.get('/posts/search', { params: { query } }),
   // createPost now accepts FormData for image uploads
   createPost: (data: FormData | any) => {
-    // If data is FormData (has images), use multipart/form-data
-    if (data instanceof FormData) {
-      return api.post('/posts', data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-    }
-    // Otherwise use JSON
+    // FormData handling is done by the request interceptor
     return api.post('/posts', data);
   },
   // updatePost now accepts FormData for image uploads
   updatePost: (id: string, data: FormData | any) => {
-    // If data is FormData (has images), use multipart/form-data
-    if (data instanceof FormData) {
-      return api.put(`/posts/${id}`, data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-    }
-    // Otherwise use JSON
+    // FormData handling is done by the request interceptor
     return api.put(`/posts/${id}`, data);
   },
   deletePost: (id: string) => api.delete(`/posts/${id}`),

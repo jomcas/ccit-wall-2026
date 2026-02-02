@@ -12,6 +12,12 @@ export const createPost = async (req: Request, res: Response) => {
     
     const { title, description, category, isAnonymous } = req.body;
 
+    // Debug logging for file uploads
+    console.log('=== CREATE POST DEBUG ===');
+    console.log('req.files:', req.files);
+    console.log('req.files length:', Array.isArray(req.files) ? req.files.length : 'not an array');
+    console.log('req.body:', req.body);
+
     // Process uploaded files (if any)
     let attachments: string[] = [];
     if (req.files && Array.isArray(req.files)) {
@@ -20,6 +26,7 @@ export const createPost = async (req: Request, res: Response) => {
       attachments = (req.files as Express.Multer.File[]).map(
         (file) => `${baseUrl}/uploads/${file.filename}`
       );
+      console.log('Processed attachments:', attachments);
     }
 
     // Teachers can only post public posts (announcements and reminders)
@@ -94,6 +101,19 @@ export const updatePost = async (req: Request, res: Response) => {
     }
     
     const { title, description, category, isAnonymous, existingImages } = req.body;
+
+    // Debug logging for file uploads
+    console.log('=== UPDATE POST DEBUG ===');
+    console.log('req.files:', req.files);
+    console.log('req.files length:', Array.isArray(req.files) ? req.files.length : 'not an array');
+    if (Array.isArray(req.files)) {
+      req.files.forEach((file, i) => {
+        console.log(`File ${i}:`, file.originalname, file.size, file.mimetype, file.filename);
+      });
+    }
+    console.log('req.body:', req.body);
+    console.log('existingImages:', existingImages);
+
     const post = await Post.findById(req.params.id);
 
     if (!post) {
@@ -149,8 +169,15 @@ export const updatePost = async (req: Request, res: Response) => {
       post.attachments = updatedAttachments.slice(0, 4);
     }
 
+    console.log('=== FINAL ATTACHMENTS ===');
+    console.log('updatedAttachments:', updatedAttachments);
+    console.log('post.attachments:', post.attachments);
+
     await post.save();
     await post.populate('author', '-password');
+
+    console.log('=== RESPONSE POST ===');
+    console.log('post.attachments in response:', post.attachments);
 
     res.json({ message: 'Post updated successfully', post });
   } catch (error) {

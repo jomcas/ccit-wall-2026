@@ -135,9 +135,17 @@ const CreatePost: React.FC = () => {
       formData.append('isAnonymous', String(isAnonymous));
 
       // Append images
-      images.forEach((image) => {
+      images.forEach((image, index) => {
+        console.log(`Appending image ${index}:`, image.name, image.size, image.type);
         formData.append('images', image);
       });
+
+      // Debug: Log FormData contents
+      console.log('=== CreatePost FormData Debug ===');
+      console.log('Total images to upload:', images.length);
+      for (const [key, value] of formData.entries()) {
+        console.log(`FormData entry: ${key} =`, value);
+      }
 
       await postService.createPost(formData);
       

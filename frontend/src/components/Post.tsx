@@ -71,10 +71,16 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
   // Process files for edit mode (shared validation logic)
   const processEditFiles = useCallback((files: FileList | File[]) => {
     const newFiles = Array.from(files);
-    const totalFiles = getTotalEditImageCount() + newFiles.length;
+    const totalFiles = editExistingImages.length + editNewImages.length + newFiles.length;
+
+    console.log('=== processEditFiles Debug ===');
+    console.log('editExistingImages.length:', editExistingImages.length);
+    console.log('editNewImages.length:', editNewImages.length);
+    console.log('newFiles.length:', newFiles.length);
+    console.log('totalFiles:', totalFiles);
 
     if (totalFiles > 4) {
-      alert('You can only have up to 4 images');
+      alert(`You can only have up to 4 images. Currently have ${editExistingImages.length + editNewImages.length}, trying to add ${newFiles.length}.`);
       return;
     }
 
@@ -82,24 +88,31 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
     const validPreviews: string[] = [];
 
     for (const file of newFiles) {
+      console.log('Processing file:', file.name, file.type, file.size);
       const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
       if (!validTypes.includes(file.type)) {
-        alert('Only JPEG, PNG, GIF, and WebP images are allowed');
+        alert(`File "${file.name}" is not a valid image type.`);
         continue;
       }
       if (file.size > 5 * 1024 * 1024) {
-        alert('Each image must be less than 5MB');
+        alert(`File "${file.name}" is too large (max 5MB).`);
         continue;
       }
       validFiles.push(file);
       validPreviews.push(URL.createObjectURL(file));
     }
 
+    console.log('Valid files to add:', validFiles.length);
+
     if (validFiles.length > 0) {
-      setEditNewImages((prev) => [...prev, ...validFiles]);
+      setEditNewImages((prev) => {
+        const updated = [...prev, ...validFiles];
+        console.log('Updated editNewImages:', updated.length, updated);
+        return updated;
+      });
       setEditNewImagePreviews((prev) => [...prev, ...validPreviews]);
     }
-  }, [getTotalEditImageCount]);
+  }, [editExistingImages.length, editNewImages.length]);
 
   // Handle file input change in edit mode
   const handleEditImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -286,6 +299,14 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
       const postId = post._id || post.id;
       if (!postId) throw new Error('Post ID is missing');
 
+      // Debug: Check editNewImages state before creating FormData
+      console.log('=== editNewImages State Debug ===');
+      console.log('editNewImages:', editNewImages);
+      console.log('editNewImages.length:', editNewImages.length);
+      editNewImages.forEach((img, i) => {
+        console.log(`Image ${i}:`, img, 'instanceof File:', img instanceof File, 'name:', img?.name, 'size:', img?.size);
+      });
+
       // Use FormData to handle image updates
       const formData = new FormData();
       formData.append('title', editTitle);
@@ -294,9 +315,44 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
       // Send existing images that should be kept
       formData.append('existingImages', JSON.stringify(editExistingImages));
       
-      // Append new images
-      editNewImages.forEach((image) => {
-        formData.append('images', image);
+      // Append new images - use a for loop to ensure proper iteration
+      for (let i = 0; i < editNewImages.length; i++) {
+        const image = editNewImages[i];
+        if (image instanceof File) {
+          console.log(`Appending image ${i}:`, image.name, image.size, image.type);
+          formData.append('images', image, image.name);
+        } else {
+          console.error(`Image ${i} is not a valid File:`, image);
+        }
+      }
+
+      // Debug: Log FormData contents
+      console.log('=== FormData Debug ===');
+      console.log('editExistingImages:', editExistingImages);
+      console.log('editNewImages count:', editNewImages.length);
+      
+      // Count files in FormData explicitly
+      let formDataFileCount = 0;
+      const formDataFiles: string[] = [];
+      for (const [key, value] of formData.entries()) {
+        if (value instanceof File) {
+          formDataFileCount++;
+          formDataFiles.push(`${key}: ${value.name} (${value.size} bytes)`);
+          console.log(`FormData entry: ${key} = File(${value.name}, ${value.size} bytes)`);
+        } else {
+          console.log(`FormData entry: ${key} =`, value);
+        }
+      }
+      console.log(`=== TOTAL FILES IN FORMDATA: ${formDataFileCount} ===`);
+      console.log('Files:', formDataFiles);
+      
+      // Also use getAll to check for multiple values under same key
+      const allImages = formData.getAll('images');
+      console.log(`formData.getAll('images') count: ${allImages.length}`);
+      allImages.forEach((img, i) => {
+        if (img instanceof File) {
+          console.log(`  getAll image ${i}: ${img.name} (${img.size} bytes)`);
+        }
       });
 
       const updatedResponse = await postService.updatePost(postId, formData);
