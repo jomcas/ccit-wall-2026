@@ -133,6 +133,7 @@ body {
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow-md);
   transition: all var(--transition-base);
+  overflow: hidden; /* Prevent themed posts from overflowing */
 }
 
 .card:hover {
@@ -3035,7 +3036,7 @@ form + .comments-list {
   align-items: center;
   text-align: center;
   position: relative;
-  margin: -20px;
+  margin: -24px;
   margin-bottom: 0;
 }
 
@@ -3072,7 +3073,7 @@ form + .comments-list {
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   padding: 20px 24px;
   position: relative;
-  margin: -20px -20px 0 -20px;
+  margin: -24px -24px 0 -24px;
 }
 
 .post-themed-banner h3 {

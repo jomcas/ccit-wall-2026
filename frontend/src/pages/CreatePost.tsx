@@ -156,12 +156,16 @@ const CreatePost: React.FC = () => {
 
       // Debug: Log FormData contents
       console.log('=== CreatePost FormData Debug ===');
+      console.log('selectedTheme:', selectedTheme);
       console.log('Total images to upload:', images.length);
       for (const [key, value] of formData.entries()) {
         console.log(`FormData entry: ${key} =`, value);
       }
 
-      await postService.createPost(formData);
+      const response = await postService.createPost(formData);
+      console.log('=== CreatePost Response ===');
+      console.log('Response data:', response.data);
+      console.log('Created post theme:', response.data?.post?.theme);
       
       // Clean up image previews
       imagePreviews.forEach((url) => URL.revokeObjectURL(url));

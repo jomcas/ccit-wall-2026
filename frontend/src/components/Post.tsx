@@ -679,18 +679,7 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
           {displayMode === 'poster' && (
             <div 
               className="post-themed-poster"
-              style={{ 
-                background: theme.gradient,
-                borderRadius: '12px',
-                padding: '32px 24px',
-                minHeight: '200px',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                alignItems: 'center',
-                textAlign: 'center',
-                position: 'relative',
-              }}
+              style={{ background: theme.gradient }}
             >
               {/* Edit/Delete buttons - positioned top right */}
               {(user.id === post.author?.id || user.id === post.author?._id) && (
@@ -778,13 +767,7 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
               {/* Gradient Banner Header */}
               <div 
                 className="post-themed-banner"
-                style={{ 
-                  background: theme.gradient,
-                  borderRadius: '12px 12px 0 0',
-                  padding: '20px 24px',
-                  marginBottom: '0',
-                  position: 'relative',
-                }}
+                style={{ background: theme.gradient }}
               >
                 {/* Edit/Delete buttons */}
                 {(user.id === post.author?.id || user.id === post.author?._id) && (
