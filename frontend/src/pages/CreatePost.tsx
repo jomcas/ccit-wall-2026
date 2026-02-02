@@ -1,8 +1,9 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { postService } from '../services/api';
 import { useSession } from '../contexts/SessionContext';
-import { FiLock, FiSend, FiImage, FiX, FiUploadCloud } from 'react-icons/fi';
+import { FiLock, FiSend, FiImage, FiX, FiUploadCloud, FiCheck } from 'react-icons/fi';
+import { POST_THEMES, getThemeById, getPostDisplayMode, POSTER_MODE_MAX_LENGTH } from '../config/themes';
 import '../styles/index.css';
 
 const CreatePost: React.FC = () => {
@@ -10,6 +11,7 @@ const CreatePost: React.FC = () => {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('general');
   const [isAnonymous, setIsAnonymous] = useState(false);
+  const [selectedTheme, setSelectedTheme] = useState('none');
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [error, setError] = useState('');
@@ -19,6 +21,17 @@ const CreatePost: React.FC = () => {
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { handleSessionExpired } = useSession();
+
+  // Get current theme and display mode
+  const currentTheme = useMemo(() => getThemeById(selectedTheme), [selectedTheme]);
+  const displayMode = useMemo(
+    () => getPostDisplayMode(selectedTheme, description.length, images.length > 0),
+    [selectedTheme, description.length, images.length]
+  );
+
+  // Calculate remaining characters for poster mode
+  const remainingChars = POSTER_MODE_MAX_LENGTH - description.length;
+  const showCharCounter = selectedTheme !== 'none' && images.length === 0;
 
   // Shared file validation logic
   const processFiles = useCallback((files: FileList | File[]) => {
@@ -133,6 +146,7 @@ const CreatePost: React.FC = () => {
       formData.append('description', description);
       formData.append('category', category);
       formData.append('isAnonymous', String(isAnonymous));
+      formData.append('theme', selectedTheme);
 
       // Append images
       images.forEach((image, index) => {
@@ -183,6 +197,28 @@ const CreatePost: React.FC = () => {
           </div>
           <div className="form-group">
             <label>Description</label>
+            {/* Live Preview Area for Themed Posts */}
+            {selectedTheme !== 'none' && (
+              <div 
+                className={`theme-preview ${displayMode}`}
+                style={{ 
+                  background: currentTheme.gradient,
+                  color: currentTheme.textColor,
+                }}
+              >
+                {displayMode === 'poster' ? (
+                  <div className="theme-preview-poster">
+                    <p className="theme-preview-text">
+                      {description || 'Your message will appear here...'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="theme-preview-banner">
+                    <h3 className="theme-preview-title">{title || 'Your Title'}</h3>
+                  </div>
+                )}
+              </div>
+            )}
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -190,6 +226,54 @@ const CreatePost: React.FC = () => {
               placeholder="What's on your mind?"
               style={{ minHeight: '140px' }}
             />
+            {/* Character counter for poster mode */}
+            {showCharCounter && (
+              <div className={`char-counter ${remainingChars < 0 ? 'over-limit' : remainingChars < 50 ? 'near-limit' : ''}`}>
+                {remainingChars >= 0 ? (
+                  <span>{remainingChars} characters left for full background</span>
+                ) : (
+                  <span>Post will use banner style (text too long for full background)</span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Theme Selector */}
+          <div className="form-group">
+            <label>Post Style</label>
+            <div className="theme-selector">
+              {POST_THEMES.map((theme) => (
+                <button
+                  key={theme.id}
+                  type="button"
+                  className={`theme-swatch ${selectedTheme === theme.id ? 'selected' : ''}`}
+                  style={{ 
+                    background: theme.id === 'none' ? '#ffffff' : theme.gradient,
+                    border: theme.id === 'none' ? '2px dashed var(--border-color)' : 'none',
+                  }}
+                  onClick={() => setSelectedTheme(theme.id)}
+                  title={theme.name}
+                  aria-label={`Select ${theme.name} theme`}
+                >
+                  {selectedTheme === theme.id && (
+                    <FiCheck 
+                      size={16} 
+                      style={{ color: theme.id === 'none' ? 'var(--text-secondary)' : theme.textColor }} 
+                    />
+                  )}
+                  {theme.id === 'none' && selectedTheme !== 'none' && (
+                    <FiX size={14} style={{ color: 'var(--text-secondary)' }} />
+                  )}
+                </button>
+              ))}
+            </div>
+            {selectedTheme !== 'none' && (
+              <p className="theme-hint">
+                {displayMode === 'poster' 
+                  ? 'Full background - great for short announcements!' 
+                  : 'Banner header - perfect for detailed posts'}
+              </p>
+            )}
           </div>
 
           {/* Image Upload Section */}
