@@ -10,7 +10,7 @@ export const createPost = async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Unauthorized' });
     }
     
-    const { title, description, category, isAnonymous } = req.body;
+    const { title, description, category, isAnonymous, theme } = req.body;
 
     // Debug logging for file uploads
     console.log('=== CREATE POST DEBUG ===');
@@ -40,6 +40,7 @@ export const createPost = async (req: Request, res: Response) => {
       category,
       isAnonymous: postIsAnonymous,
       attachments,
+      theme: theme || 'none',
     });
 
     await post.save();
@@ -100,7 +101,7 @@ export const updatePost = async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Unauthorized' });
     }
     
-    const { title, description, category, isAnonymous, existingImages } = req.body;
+    const { title, description, category, isAnonymous, existingImages, theme } = req.body;
 
     // Debug logging for file uploads
     console.log('=== UPDATE POST DEBUG ===');
@@ -127,6 +128,11 @@ export const updatePost = async (req: Request, res: Response) => {
     post.title = title || post.title;
     post.description = description || post.description;
     post.category = category || post.category;
+    
+    // Update theme if provided
+    if (theme !== undefined) {
+      post.theme = theme;
+    }
     
     // Teachers can only post public posts - enforce isAnonymous=false for teachers
     if (req.user.role === 'teacher') {

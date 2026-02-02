@@ -19,6 +19,7 @@ export interface Post {
   category: 'college-activities' | 'general' | 'extracurricular';
   isAnonymous: boolean;
   attachments?: string[];
+  theme?: string;
   likes: string[];
   reactions: Map<string, string[]>;
   comments: Comment[];

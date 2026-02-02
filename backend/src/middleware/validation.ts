@@ -126,6 +126,7 @@ export const validateSearchQuery = [
  * - category: Required, must be one of the allowed categories
  * - isAnonymous: Optional, must be boolean
  * - attachments: Optional, must be array of valid URLs
+ * - theme: Optional, string for post background theme
  */
 export const validateCreatePost = [
   body('title')
@@ -149,6 +150,10 @@ export const validateCreatePost = [
       return value;
     })
     .isBoolean().withMessage('isAnonymous must be a boolean value'),
+  body('theme')
+    .optional()
+    .trim()
+    .isLength({ max: 50 }).withMessage('Theme must be at most 50 characters'),
   body('attachments')
     .optional()
     .isArray().withMessage('Attachments must be an array')
@@ -192,6 +197,10 @@ export const validateUpdatePost = [
       return value;
     })
     .isBoolean().withMessage('isAnonymous must be a boolean value'),
+  body('theme')
+    .optional()
+    .trim()
+    .isLength({ max: 50 }).withMessage('Theme must be at most 50 characters'),
   body('attachments')
     .optional()
     .isArray().withMessage('Attachments must be an array'),
