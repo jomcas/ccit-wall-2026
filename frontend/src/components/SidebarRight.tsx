@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { userService } from '../services/api';
 import { User as UserType } from '../types';
 import { useSession } from '../contexts/SessionContext';
@@ -12,23 +12,7 @@ const SidebarRight: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const { user: currentUser } = useSession();
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
-  useEffect(() => {
-    if (search.trim()) {
-      const filtered = users.filter(user => 
-        user.name.toLowerCase().includes(search.toLowerCase()) ||
-        user.email.toLowerCase().includes(search.toLowerCase())
-      );
-      setFilteredUsers(filtered);
-    } else {
-      setFilteredUsers(users);
-    }
-  }, [search, users]);
-
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try {
       const response = await userService.getAllUsers();
       // Filter out admin users and current user
@@ -42,7 +26,25 @@ const SidebarRight: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
+
+  useEffect(() => {
+    if (search.trim()) {
+      const filtered = users.filter(user => 
+        user.name.toLowerCase().includes(search.toLowerCase()) ||
+        user.email.toLowerCase().includes(search.toLowerCase())
+      );
+      setFilteredUsers(filtered);
+    } else {
+      setFilteredUsers(users);
+    }
+  }, [search, users]);
+
+
 
   return (
     <div className="sidebar-right-content">

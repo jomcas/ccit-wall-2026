@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom';
 import { postService, commentService } from '../services/api';
 import { Post as PostType, Comment as CommentType } from '../types';
-import { FiHeart, FiMessageCircle, FiEdit2, FiTrash2, FiCheck, FiSend, FiX, FiImage, FiUploadCloud, FiPaperclip, FiSmile } from 'react-icons/fi';
+import { FiHeart, FiMessageCircle, FiEdit2, FiTrash2, FiCheck, FiSend, FiX, FiImage, FiUploadCloud } from 'react-icons/fi';
 import { FaHeart } from 'react-icons/fa';
 import ConfirmDialog from './ConfirmDialog';
 import ImageLightbox from './ImageLightbox';
