@@ -2,11 +2,12 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom';
 import { postService, commentService } from '../services/api';
 import { Post as PostType, Comment as CommentType } from '../types';
-import { FiHeart, FiMessageCircle, FiEdit2, FiTrash2, FiCheck, FiSend, FiX, FiImage, FiUploadCloud } from 'react-icons/fi';
+import { FiHeart, FiMessageCircle, FiEdit2, FiTrash2, FiCheck, FiSend, FiX, FiImage, FiUploadCloud, FiPaperclip, FiSmile } from 'react-icons/fi';
 import { FaHeart } from 'react-icons/fa';
 import ConfirmDialog from './ConfirmDialog';
 import ImageLightbox from './ImageLightbox';
-import { getThemeById, getPostDisplayMode, PostDisplayMode, POST_THEMES, POSTER_MODE_MAX_LENGTH } from '../config/themes';
+import { getThemeById, getPostDisplayMode, POST_THEMES, POSTER_MODE_MAX_LENGTH } from '../config/themes';
+import { useSession } from '../contexts/SessionContext';
 import '../styles/index.css';
 
 interface PostProps {
@@ -17,7 +18,7 @@ interface PostProps {
 
 const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated }) => {
   const [comments, setComments] = useState<CommentType[]>([]);
-  const [showComments, setShowComments] = useState(false);
+  const [showComments, setShowComments] = useState(true);
   const [newComment, setNewComment] = useState('');
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(post.likes?.length);
@@ -31,6 +32,7 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editCommentContent, setEditCommentContent] = useState('');
   const editCommentRef = useRef<HTMLInputElement>(null);
+  const [visibleCommentsCount, setVisibleCommentsCount] = useState(3);
 
   // Delete confirmation dialog state
   const [deletePostDialogOpen, setDeletePostDialogOpen] = useState(false);
@@ -49,7 +51,8 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
 
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const { user } = useSession();
+  const userId = user?.id || user?._id || '';
 
   // Theme-related computed values
   const theme = useMemo(() => getThemeById(post.theme), [post.theme]);
@@ -215,7 +218,9 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
   };
 
   useEffect(() => {
-    setLiked(post.likes.includes(user.id));
+    if (userId) {
+      setLiked(post.likes.includes(userId));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [post]);
 
@@ -262,8 +267,8 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
       const likedState: { [key: string]: boolean } = {};
       response.data.forEach((comment: CommentType) => {
         const commentId = comment._id || comment.id;
-        if (commentId) {
-          likedState[commentId] = comment.likes?.includes(user.id) || false;
+        if (commentId && userId) {
+          likedState[commentId] = comment.likes?.includes(userId) || false;
         }
       });
       setCommentLikes(likedState);
@@ -296,6 +301,8 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
       await commentService.createComment(postId, newComment);
       setNewComment('');
       await loadComments();
+      // Ensure new comment is visible (it will be at the end, so we need at least 1 visible)
+      setVisibleCommentsCount(prev => Math.max(prev, 3));
     } catch (error) {
       console.error('Failed to add comment', error);
     }
@@ -416,6 +423,8 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
   // ============================================
 
   const handleLikeComment = useCallback(async (commentId: string) => {
+    if (!userId) return;
+    
     try {
       await commentService.likeComment(commentId);
 
@@ -432,8 +441,8 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
           const id = comment._id || comment.id;
           if (id === commentId) {
             const newLikes = wasLiked
-              ? comment.likes.filter((likeId) => likeId !== user.id)
-              : [...comment.likes, user.id];
+              ? comment.likes.filter((likeId) => likeId !== userId)
+              : [...comment.likes, userId];
             return { ...comment, likes: newLikes };
           }
           return comment;
@@ -442,7 +451,7 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
     } catch (error) {
       console.error('Failed to like comment', error);
     }
-  }, [commentLikes, user.id]);
+  }, [commentLikes, userId]);
 
   const handleDeleteComment = useCallback(async (commentId: string) => {
     try {
@@ -682,7 +691,7 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
               style={{ background: theme.gradient }}
             >
               {/* Edit/Delete buttons - positioned top right */}
-              {(user.id === post.author?.id || user.id === post.author?._id) && (
+              {(userId === post.author?.id || userId === post.author?._id) && (
                 <div className="post-actions post-actions-themed" style={{ position: 'absolute', top: '12px', right: '12px' }}>
                   <button
                     onClick={enterEditMode}
@@ -702,6 +711,40 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
                   </button>
                 </div>
               )}
+
+              {/* Author Header on Poster - Avatar + Name/Date */}
+              <div className="post-header-modern" style={{ marginBottom: '16px', justifyContent: 'center' }}>
+                {post.isAnonymous ? (
+                  <div className="post-avatar-placeholder-small" style={{ background: 'rgba(255,255,255,0.3)' }}>?</div>
+                ) : post.author?.profilePicture ? (
+                  <img
+                    src={post.author.profilePicture}
+                    alt={post.author.name}
+                    className="post-avatar-small"
+                    style={{ border: '2px solid rgba(255,255,255,0.5)' }}
+                  />
+                ) : (
+                  <div className="post-avatar-placeholder-small" style={{ background: 'rgba(255,255,255,0.3)' }}>
+                    {post.author?.name?.charAt(0) || 'U'}
+                  </div>
+                )}
+                <div className="post-meta-info" style={{ alignItems: 'flex-start' }}>
+                  {post.isAnonymous ? (
+                    <span className="post-author-name" style={{ color: theme.textColor }}>Anonymous</span>
+                  ) : (
+                    <Link
+                      to={`/user/${post.author?._id || post.author?.id}`}
+                      className="post-author-name"
+                      style={{ color: theme.textColor }}
+                    >
+                      {post.author?.name}
+                    </Link>
+                  )}
+                  <span className="post-date" style={{ color: theme.secondaryTextColor || theme.textColor, opacity: 0.85 }}>
+                    {new Date(post.createdAt).toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
 
               {/* Title (optional in poster mode - hidden if same as description) */}
               {post.title && post.title !== post.description && (
@@ -732,32 +775,6 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
               >
                 {post.description}
               </p>
-
-              {/* Author info - bottom */}
-              <p 
-                className="post-poster-meta"
-                style={{ 
-                  fontSize: '12px', 
-                  color: theme.secondaryTextColor || theme.textColor,
-                  marginTop: '16px',
-                  opacity: 0.85,
-                }}
-              >
-                By{' '}
-                {post.isAnonymous ? (
-                  'Anonymous'
-                ) : (
-                  <Link
-                    to={`/user/${post.author?._id || post.author?.id}`}
-                    style={{ color: theme.textColor, textDecoration: 'none', cursor: 'pointer' }}
-                    onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
-                    onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
-                  >
-                    {post.author?.name}
-                  </Link>
-                )}{' '}
-                • {new Date(post.createdAt).toLocaleDateString()}
-              </p>
             </div>
           )}
 
@@ -770,7 +787,7 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
                 style={{ background: theme.gradient }}
               >
                 {/* Edit/Delete buttons */}
-                {(user.id === post.author?.id || user.id === post.author?._id) && (
+                {(userId === post.author?.id || userId === post.author?._id) && (
                   <div className="post-actions post-actions-themed" style={{ position: 'absolute', top: '12px', right: '12px' }}>
                     <button
                       onClick={enterEditMode}
@@ -791,28 +808,47 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
                   </div>
                 )}
 
-                <h3 style={{ color: theme.textColor, marginBottom: '4px' }}>{post.title}</h3>
-                <p style={{ fontSize: '12px', color: theme.secondaryTextColor || theme.textColor, opacity: 0.85 }}>
-                  By{' '}
+                {/* Author Header on Banner - Avatar + Name/Date */}
+                <div className="post-header-modern" style={{ marginBottom: '12px' }}>
                   {post.isAnonymous ? (
-                    'Anonymous'
+                    <div className="post-avatar-placeholder-small" style={{ background: 'rgba(255,255,255,0.3)' }}>?</div>
+                  ) : post.author?.profilePicture ? (
+                    <img
+                      src={post.author.profilePicture}
+                      alt={post.author.name}
+                      className="post-avatar-small"
+                      style={{ border: '2px solid rgba(255,255,255,0.5)' }}
+                    />
                   ) : (
-                    <Link
-                      to={`/user/${post.author?._id || post.author?.id}`}
-                      style={{ color: theme.textColor, textDecoration: 'none', cursor: 'pointer' }}
-                      onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
-                      onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
-                    >
-                      {post.author?.name}
-                    </Link>
-                  )}{' '}
-                  • {new Date(post.createdAt).toLocaleDateString()}
-                </p>
+                    <div className="post-avatar-placeholder-small" style={{ background: 'rgba(255,255,255,0.3)' }}>
+                      {post.author?.name?.charAt(0) || 'U'}
+                    </div>
+                  )}
+                  <div className="post-meta-info">
+                    {post.isAnonymous ? (
+                      <span className="post-author-name" style={{ color: theme.textColor }}>Anonymous</span>
+                    ) : (
+                      <Link
+                        to={`/user/${post.author?._id || post.author?.id}`}
+                        className="post-author-name"
+                        style={{ color: theme.textColor }}
+                      >
+                        {post.author?.name}
+                      </Link>
+                    )}
+                    <span className="post-date" style={{ color: theme.secondaryTextColor || theme.textColor, opacity: 0.85 }}>
+                      {new Date(post.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Title on Banner */}
+                <h3 style={{ color: theme.textColor, marginBottom: '0' }}>{post.title}</h3>
               </div>
 
               {/* Normal Content Area */}
               <div className="post-banner-content" style={{ padding: '16px 0 0 0' }}>
-                <p style={{ marginBottom: '16px', lineHeight: '1.7', color: 'var(--text-primary)' }}>{post.description}</p>
+                <p className="post-body">{post.description}</p>
 
                 {/* Image Attachments */}
                 {post.attachments && post.attachments.length > 0 && (
@@ -839,28 +875,41 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
           {/* Normal Mode: Standard post layout */}
           {displayMode === 'normal' && (
             <>
-              <div className="post-header">
-                <div>
-                  <h3>{post.title}</h3>
-                  <p style={{ fontSize: '12px', color: '#999' }}>
-                    By{' '}
-                    {post.isAnonymous ? (
-                      'Anonymous'
-                    ) : (
-                      <Link
-                        to={`/user/${post.author?._id || post.author?.id}`}
-                        style={{ color: '#1e40af', textDecoration: 'none', cursor: 'pointer' }}
-                        onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
-                        onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
-                      >
-                        {post.author?.name}
-                      </Link>
-                    )}{' '}
-                    • {new Date(post.createdAt).toLocaleDateString()}
-                  </p>
+              {/* Modern Header: Avatar + Name/Date */}
+              <div className="post-header-modern">
+                {/* Author Avatar */}
+                {post.isAnonymous ? (
+                  <div className="post-avatar-placeholder-small">?</div>
+                ) : post.author?.profilePicture ? (
+                  <img
+                    src={post.author.profilePicture}
+                    alt={post.author.name}
+                    className="post-avatar-small"
+                  />
+                ) : (
+                  <div className="post-avatar-placeholder-small">
+                    {post.author?.name?.charAt(0) || 'U'}
+                  </div>
+                )}
+
+                {/* Author Name + Date */}
+                <div className="post-meta-info">
+                  {post.isAnonymous ? (
+                    <span className="post-author-name">Anonymous</span>
+                  ) : (
+                    <Link
+                      to={`/user/${post.author?._id || post.author?.id}`}
+                      className="post-author-name"
+                    >
+                      {post.author?.name}
+                    </Link>
+                  )}
+                  <span className="post-date">{new Date(post.createdAt).toLocaleDateString()}</span>
                 </div>
-                {(user.id === post.author?.id || user.id === post.author?._id) && (
-                  <div className="post-actions">
+
+                {/* Edit/Delete Actions */}
+                {(userId === post.author?.id || userId === post.author?._id) && (
+                  <div className="post-header-actions">
                     <button
                       onClick={enterEditMode}
                       className="btn-post-action"
@@ -879,7 +928,13 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
                 )}
               </div>
 
-              <p style={{ marginBottom: '16px', lineHeight: '1.7', color: 'var(--text-primary)' }}>{post.description}</p>
+              {/* Post Title */}
+              {post.title && (
+                <h3 className="post-title">{post.title}</h3>
+              )}
+
+              {/* Post Body */}
+              <p className="post-body">{post.description}</p>
 
               {/* Image Attachments */}
               {post.attachments && post.attachments.length > 0 && (
@@ -902,131 +957,180 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
             </>
           )}
 
-          {/* Engagement buttons - shared across all modes */}
-          <div className="post-engagement">
+          {/* Action Buttons Row - shared across all modes */}
+          <div className="post-actions-row">
             <button
               onClick={handleLike}
-              className={`btn-post-like ${liked ? 'active' : ''}`}
+              className={`btn-action-modern ${liked ? 'active' : ''}`}
             >
               {liked ? <FaHeart size={16} /> : <FiHeart size={16} />}
-              {likes > 0 && <span>{likes}</span>}
+              <span>{likes} {likes === 1 ? 'Like' : 'Likes'}</span>
             </button>
             <button
               onClick={() => setShowComments(!showComments)}
-              className={`btn-post-comment ${showComments ? 'active' : ''}`}
+              className={`btn-action-modern ${showComments ? 'comment-active' : ''}`}
             >
               <FiMessageCircle size={16} />
-              {comments.length > 0 && <span>{comments.length}</span>}
+              <span>{comments.length} {comments.length === 1 ? 'Comment' : 'Comments'}</span>
             </button>
           </div>
 
           {showComments && (
-            <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
-              <form onSubmit={handleAddComment} style={{ marginBottom: '16px' }}>
-                <div style={{ display: 'flex', gap: '12px' }}>
+            <div style={{ marginTop: '12px' }}>
+              {/* Modern Comment Input */}
+              <form onSubmit={handleAddComment} className="comment-input-modern">
+                {/* Current User Avatar */}
+                {user?.profilePicture ? (
+                  <img
+                    src={user.profilePicture}
+                    alt={user.name}
+                    className="comment-input-avatar"
+                  />
+                ) : (
+                  <div className="comment-input-avatar-placeholder">
+                    {user?.name?.charAt(0) || 'U'}
+                  </div>
+                )}
+
+                {/* Pill Input Wrapper */}
+                <div className="comment-input-wrapper">
                   <input
                     type="text"
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Write a comment..."
-                    className="input-modern"
-                    style={{ flex: 1 }}
+                    placeholder="Write your comment..."
+                    className="comment-input-field"
                   />
-                  <button type="submit" className="button button-primary">
-                    <FiSend size={14} style={{ marginRight: '6px' }} /> Post
+                  {/* <div className="comment-input-icons">
+                    <button type="button" className="comment-input-icon-btn" title="Attach file">
+                      <FiPaperclip size={16} />
+                    </button>
+                    <button type="button" className="comment-input-icon-btn" title="Add emoji">
+                      <FiSmile size={16} />
+                    </button>
+                    <button type="button" className="comment-input-icon-btn" title="Add image">
+                      <FiImage size={16} />
+                    </button>
+                  </div> */}
+                  <button
+                    type="submit"
+                    className="comment-input-send"
+                    disabled={!newComment.trim()}
+                    title="Send comment"
+                  >
+                    <FiSend size={14} />
                   </button>
                 </div>
               </form>
 
-              <div className="comments-list">
-                {comments.map((comment) => {
-                  const commentId = comment._id || comment.id;
-                  const isLiked = commentId ? commentLikes[commentId] : false;
-                  const likeCount = comment.likes?.length || 0;
-                  const isAuthor = user.id === (comment.author?._id || comment.author?.id);
-                  const isEditing = editingCommentId === commentId;
+              {/* Comments List */}
+              {comments.length > 0 && (
+                <div className="comments-list" style={{ marginTop: '16px' }}>
+                  {/* Show latest comments first (reversed), limited by visibleCommentsCount */}
+                  {[...comments].reverse().slice(0, visibleCommentsCount).map((comment) => {
+                    const commentId = comment._id || comment.id;
+                    const isLiked = commentId ? commentLikes[commentId] : false;
+                    const likeCount = comment.likes?.length || 0;
+                    const isAuthor = userId === (comment.author?._id || comment.author?.id);
+                    const isEditing = editingCommentId === commentId;
 
-                  // Check if comment was edited (updatedAt > createdAt by more than 1 second)
-                  const isEdited =
-                    comment.updatedAt &&
-                    comment.createdAt &&
-                    new Date(comment.updatedAt).getTime() - new Date(comment.createdAt).getTime() > 1000;
+                    // Check if comment was edited (updatedAt > createdAt by more than 1 second)
+                    const isEdited =
+                      comment.updatedAt &&
+                      comment.createdAt &&
+                      new Date(comment.updatedAt).getTime() - new Date(comment.createdAt).getTime() > 1000;
 
-                  return (
-                    <div key={commentId} className="comment-box">
-                      {/* Header row: author, timestamp, actions */}
-                      <div className="comment-header">
-                        <div className="comment-meta">
-                          <span className="comment-author">{comment.author?.name}</span>
-                          <span className="comment-time">• {formatTimeAgo(comment.createdAt)}</span>
-                          {isEdited && <span className="comment-edited">(edited)</span>}
-                        </div>
-                        <div className="comment-actions">
-                          {isAuthor && !isEditing && (
-                            <>
-                              <button
-                                onClick={() => handleEditComment(comment)}
-                                className="btn-comment-action"
-                                title="Edit comment"
-                              >
-                                <FiEdit2 size={12} />
-                              </button>
-                              <button
-                                onClick={() => commentId && openDeleteCommentDialog(commentId)}
-                                className="btn-comment-action btn-comment-delete"
-                                title="Delete comment"
-                              >
-                                <FiTrash2 size={12} />
-                              </button>
-                            </>
-                          )}
-                          <button
-                            onClick={() => commentId && handleLikeComment(commentId)}
-                            className={`btn-comment-like ${isLiked ? 'active' : ''}`}
-                            title={isLiked ? 'Unlike' : 'Like'}
-                          >
-                            {isLiked ? <FaHeart size={12} /> : <FiHeart size={12} />}
-                            {likeCount > 0 && <span>{likeCount}</span>}
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Content row: text or edit input */}
-                      {isEditing ? (
-                        <div className="comment-edit-form">
-                          <input
-                            ref={editCommentRef}
-                            type="text"
-                            value={editCommentContent}
-                            onChange={(e) => setEditCommentContent(e.target.value)}
-                            onKeyDown={(e) => commentId && handleEditKeyDown(e, commentId)}
-                            className="input-modern comment-edit-input"
-                            autoFocus
-                          />
-                          <div className="comment-edit-actions">
+                    return (
+                      <div key={commentId} className="comment-box">
+                        {/* Header row: author, timestamp, actions */}
+                        <div className="comment-header">
+                          <div className="comment-meta">
+                            <span className="comment-author">{comment.author?.name}</span>
+                            <span className="comment-time">• {formatTimeAgo(comment.createdAt)}</span>
+                            {isEdited && <span className="comment-edited">(edited)</span>}
+                          </div>
+                          <div className="comment-actions">
+                            {isAuthor && !isEditing && (
+                              <>
+                                <button
+                                  onClick={() => handleEditComment(comment)}
+                                  className="btn-comment-action"
+                                  title="Edit comment"
+                                >
+                                  <FiEdit2 size={12} />
+                                </button>
+                                <button
+                                  onClick={() => commentId && openDeleteCommentDialog(commentId)}
+                                  className="btn-comment-action btn-comment-delete"
+                                  title="Delete comment"
+                                >
+                                  <FiTrash2 size={12} />
+                                </button>
+                              </>
+                            )}
                             <button
-                              onClick={() => commentId && handleSaveCommentEdit(commentId)}
-                              className="btn-comment-save"
+                              onClick={() => commentId && handleLikeComment(commentId)}
+                              className={`btn-comment-like ${isLiked ? 'active' : ''}`}
+                              title={isLiked ? 'Unlike' : 'Like'}
                             >
-                              <FiCheck size={12} style={{ marginRight: '4px' }} />
-                              Save
-                            </button>
-                            <button
-                              onClick={handleCancelCommentEdit}
-                              className="btn-comment-cancel"
-                            >
-                              <FiX size={12} style={{ marginRight: '4px' }} />
-                              Cancel
+                              {isLiked ? <FaHeart size={12} /> : <FiHeart size={12} />}
+                              {likeCount > 0 && <span>{likeCount}</span>}
                             </button>
                           </div>
                         </div>
-                      ) : (
-                        <p className="comment-content">{comment.content}</p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+
+                        {/* Content row: text or edit input */}
+                        {isEditing ? (
+                          <div className="comment-edit-form">
+                            <input
+                              ref={editCommentRef}
+                              type="text"
+                              value={editCommentContent}
+                              onChange={(e) => setEditCommentContent(e.target.value)}
+                              onKeyDown={(e) => commentId && handleEditKeyDown(e, commentId)}
+                              className="input-modern comment-edit-input"
+                              autoFocus
+                            />
+                            <div className="comment-edit-actions">
+                              <button
+                                onClick={() => commentId && handleSaveCommentEdit(commentId)}
+                                className="btn-comment-save"
+                              >
+                                <FiCheck size={12} style={{ marginRight: '4px' }} />
+                                Save
+                              </button>
+                              <button
+                                onClick={handleCancelCommentEdit}
+                                className="btn-comment-cancel"
+                              >
+                                <FiX size={12} style={{ marginRight: '4px' }} />
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="comment-content">{comment.content}</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {/* View previous comments button - at the bottom */}
+                  {comments.length > visibleCommentsCount && (
+                    <button
+                      className="button btn-ghost"
+                      style={{ 
+                        width: '100%', 
+                        marginTop: '12px', 
+                        fontSize: '13px', 
+                        padding: '8px 12px' 
+                      }}
+                      onClick={() => setVisibleCommentsCount(prev => Math.min(prev + 3, comments.length))}
+                    >
+                      View previous comments ({comments.length - visibleCommentsCount} more)
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </>

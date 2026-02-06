@@ -1,0 +1,486 @@
+/* ============================================
+   DARK MODE THEME
+   theme.css - Dark mode variable overrides
+   ============================================ */
+
+/* 
+ * Dark Theme Color Palette
+ * Based on Slate color scale for a professional look
+ * Maintains brand colors (gold, blue) while adapting backgrounds
+ */
+
+[data-theme="dark"] {
+  /* Background Colors - Greyish instead of pure black */
+  --app-bg: #1a1d24;           /* Dark grey - Main app background */
+  --light-gray: #252a33;       /* Lighter grey - Card/surface background */
+  --dark-blue: #1a1d24;        /* Match app-bg */
+  
+  /* Text Colors */
+  --text-primary: #f1f5f9;     /* Slate 100 - Primary text */
+  --text-secondary: #94a3b8;   /* Slate 400 - Secondary text */
+  
+  /* Border Colors */
+  --border-color: #3a3f4a;     /* Grey - Borders */
+  
+  /* Primary Brand Colors - Slightly adjusted for dark mode contrast */
+  --primary-blue: #3b82f6;     /* Blue 500 - Brighter for dark mode */
+  --primary-blue-hover: #60a5fa; /* Blue 400 */
+  --primary-blue-light: rgba(59, 130, 246, 0.15); /* Transparent for backgrounds */
+  
+  /* Gold colors remain the same - they pop nicely on dark */
+  --primary-gold: #fbbf24;     /* Amber 400 - Slightly brighter */
+  --primary-gold-hover: #fcd34d; /* Amber 300 */
+  --primary-gold-active: #f59e0b; /* Amber 500 */
+  
+  /* Shadows - Darker with more opacity */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+  --shadow-blue: 0 4px 14px 0 rgba(59, 130, 246, 0.25);
+  --shadow-blue-subtle: 0 2px 8px 0 rgba(59, 130, 246, 0.1);
+  --shadow-gold: 0 4px 14px 0 rgba(251, 191, 36, 0.25);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* ============================================
+   COMPONENT-SPECIFIC DARK MODE OVERRIDES
+   ============================================ */
+
+/* Body & Global */
+[data-theme="dark"] body {
+  background-color: var(--app-bg);
+  color: var(--text-primary);
+}
+
+/* Cards */
+[data-theme="dark"] .card,
+[data-theme="dark"] .profile-card,
+[data-theme="dark"] .create-post-widget,
+[data-theme="dark"] .notifications-list,
+[data-theme="dark"] .feed-empty-state {
+  background: var(--light-gray);
+  border-color: var(--border-color);
+}
+
+/* Headers and Sidebars */
+[data-theme="dark"] .top-header {
+  background: #252a33;
+  border-bottom-color: var(--border-color);
+}
+
+[data-theme="dark"] .sidebar-left,
+[data-theme="dark"] .sidebar-right {
+  background: #252a33;
+  border-color: var(--border-color);
+}
+
+/* Input fields */
+[data-theme="dark"] .top-header-search-input,
+[data-theme="dark"] .sidebar-search-input,
+[data-theme="dark"] .feed-search-bar-input,
+[data-theme="dark"] .form-group input,
+[data-theme="dark"] .form-group textarea,
+[data-theme="dark"] .form-group select,
+[data-theme="dark"] .input-modern,
+[data-theme="dark"] .select-modern,
+[data-theme="dark"] .profile-form-input,
+[data-theme="dark"] .profile-form-textarea,
+[data-theme="dark"] .create-post-title-input,
+[data-theme="dark"] .create-post-textarea,
+[data-theme="dark"] .comment-input-field,
+[data-theme="dark"] .comment-edit-input {
+  background: #1a1d24;
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .top-header-search-input:focus,
+[data-theme="dark"] .sidebar-search-input:focus,
+[data-theme="dark"] .form-group input:focus,
+[data-theme="dark"] .form-group textarea:focus,
+[data-theme="dark"] .input-modern:focus,
+[data-theme="dark"] .profile-form-input:focus,
+[data-theme="dark"] .profile-form-textarea:focus {
+  background: #1a1d24;
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="dark"] .top-header-search-input::placeholder,
+[data-theme="dark"] .sidebar-search-input::placeholder,
+[data-theme="dark"] .form-group input::placeholder,
+[data-theme="dark"] .form-group textarea::placeholder,
+[data-theme="dark"] .create-post-title-input::placeholder,
+[data-theme="dark"] .create-post-textarea::placeholder,
+[data-theme="dark"] .comment-input-field::placeholder {
+  color: var(--text-secondary);
+}
+
+/* Dropdowns and Selects */
+[data-theme="dark"] .top-header-category,
+[data-theme="dark"] .feed-category-dropdown,
+[data-theme="dark"] .create-post-category-select {
+  background-color: #1a1d24;
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+/* Comment Boxes */
+[data-theme="dark"] .comment-box {
+  background: linear-gradient(135deg, #1a1d24 0%, #252a33 100%);
+  border-color: var(--border-color);
+}
+
+[data-theme="dark"] .comment-input-wrapper {
+  background: #1a1d24;
+  border-color: var(--border-color);
+}
+
+/* User preview and rows */
+[data-theme="dark"] .sidebar-user-preview,
+[data-theme="dark"] .user-row:hover,
+[data-theme="dark"] .sidebar-nav-item:hover {
+  background: #32373f;
+}
+
+/* Sidebar nav item active state - Yellow/Gold text */
+[data-theme="dark"] .sidebar-nav-item.active {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(251, 191, 36, 0.08) 100%);
+  color: var(--primary-gold);
+}
+
+[data-theme="dark"] .sidebar-nav-item.active svg {
+  color: var(--primary-gold);
+}
+
+/* Buttons - Ghost/Secondary styles */
+[data-theme="dark"] .btn-ghost,
+[data-theme="dark"] .profile-edit-btn,
+[data-theme="dark"] .profile-cancel-btn,
+[data-theme="dark"] .confirm-dialog-btn-cancel {
+  background: #32373f;
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .btn-ghost:hover,
+[data-theme="dark"] .profile-edit-btn:hover,
+[data-theme="dark"] .profile-cancel-btn:hover,
+[data-theme="dark"] .confirm-dialog-btn-cancel:hover {
+  background: #3f454e;
+  border-color: #3f454e;
+}
+
+/* Tab buttons */
+[data-theme="dark"] .btn-tab {
+  background: #252a33;
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+[data-theme="dark"] .btn-tab:hover {
+  border-color: var(--primary-gold);
+  color: var(--text-primary);
+}
+
+/* Like buttons */
+[data-theme="dark"] .btn-like {
+  background: linear-gradient(135deg, #32373f 0%, #252a33 100%);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .btn-like:hover {
+  background: linear-gradient(135deg, #3f454e 0%, #32373f 100%);
+}
+
+/* Action buttons (modern) */
+[data-theme="dark"] .btn-action-modern:hover {
+  background: #32373f;
+}
+
+/* Notification Dropdown/Popover */
+[data-theme="dark"] .notification-dropdown,
+[data-theme="dark"] .header-notification-popover {
+  background: #252a33;
+  border-color: var(--border-color);
+}
+
+[data-theme="dark"] .notification-dropdown-header,
+[data-theme="dark"] .notification-dropdown-footer,
+[data-theme="dark"] .header-notification-popover-header,
+[data-theme="dark"] .header-notification-popover-footer {
+  border-color: var(--border-color);
+  background: #252a33;
+}
+
+[data-theme="dark"] .notification-item:hover,
+[data-theme="dark"] .header-notification-item:hover {
+  background: #32373f;
+}
+
+[data-theme="dark"] .notification-item.unread,
+[data-theme="dark"] .header-notification-item.unread {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+/* Notification Bell Button */
+[data-theme="dark"] .header-notification-btn,
+[data-theme="dark"] .header-logout-btn {
+  background: #32373f;
+  color: var(--text-secondary);
+}
+
+[data-theme="dark"] .header-notification-btn:hover {
+  background: #3f454e;
+  color: var(--primary-blue);
+}
+
+[data-theme="dark"] .header-logout-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+/* Dialogs */
+[data-theme="dark"] .confirm-dialog,
+[data-theme="dark"] .session-expired-dialog {
+  background: #252a33;
+}
+
+[data-theme="dark"] .confirm-dialog-backdrop,
+[data-theme="dark"] .session-expired-backdrop {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+/* Alerts */
+[data-theme="dark"] .alert-error,
+[data-theme="dark"] .profile-alert-error {
+  background: linear-gradient(135deg, rgba(127, 29, 29, 0.3) 0%, rgba(153, 27, 27, 0.2) 100%);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .alert-success,
+[data-theme="dark"] .profile-alert-success {
+  background: linear-gradient(135deg, rgba(20, 83, 45, 0.3) 0%, rgba(22, 101, 52, 0.2) 100%);
+  border-color: rgba(34, 197, 94, 0.3);
+  color: #86efac;
+}
+
+/* Empty states */
+[data-theme="dark"] .empty-state {
+  background: linear-gradient(135deg, #252a33 0%, #1a1d24 100%);
+  border-color: var(--border-color);
+}
+
+/* Image previews and drop zones */
+[data-theme="dark"] .image-drop-zone,
+[data-theme="dark"] .image-preview-item {
+  background: #1a1d24;
+  border-color: var(--border-color);
+}
+
+[data-theme="dark"] .image-drop-zone:hover:not(.disabled) {
+  border-color: var(--primary-blue);
+  background: rgba(59, 130, 246, 0.05);
+}
+
+/* Post images container */
+[data-theme="dark"] .post-images {
+  background: #1a1d24;
+}
+
+[data-theme="dark"] .post-image-item {
+  background: #252a33;
+  border-color: var(--border-color);
+}
+
+/* Create post widget specific */
+[data-theme="dark"] .create-post-input-fake {
+  background: #1a1d24;
+  color: var(--text-secondary);
+}
+
+[data-theme="dark"] .create-post-title-input {
+  border-bottom-color: var(--border-color);
+  background: transparent;
+}
+
+[data-theme="dark"] .create-post-title-input:focus {
+  border-bottom-color: var(--primary-blue);
+}
+
+[data-theme="dark"] .create-post-textarea {
+  background: transparent;
+}
+
+/* Filter buttons */
+[data-theme="dark"] .notification-filter-btn {
+  background: #252a33;
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+[data-theme="dark"] .notification-filter-btn:hover {
+  border-color: var(--primary-blue);
+  color: var(--primary-blue);
+}
+
+[data-theme="dark"] .notification-filter-btn.active {
+  background: var(--primary-blue);
+  border-color: var(--primary-blue);
+  color: white;
+}
+
+/* Category items in sidebar */
+[data-theme="dark"] .sidebar-category-item:hover {
+  background: #32373f;
+}
+
+[data-theme="dark"] .sidebar-category-item.active {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(251, 191, 36, 0.08) 100%);
+}
+
+/* App layout background overlay */
+[data-theme="dark"] .app-layout::before {
+  background-image: linear-gradient(135deg, rgba(26, 29, 36, 0.95) 0%, rgba(37, 42, 51, 0.92) 100%),
+    url('https://picsum.photos/id/1018/1920/1080');
+  opacity: 1;
+  filter: saturate(0.5) brightness(0.3);
+}
+
+/* User name badge in header */
+[data-theme="dark"] .user-name-badge {
+  background: linear-gradient(135deg, #32373f 0%, #252a33 100%);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+[data-theme="dark"] .user-name-badge:hover {
+  background: linear-gradient(135deg, var(--primary-gold) 0%, var(--primary-gold-hover) 100%);
+  color: #1a1d24;
+}
+
+/* Profile info icons */
+[data-theme="dark"] .profile-info-icon {
+  background: #32373f;
+}
+
+/* Lightbox */
+[data-theme="dark"] .lightbox-overlay {
+  background: rgba(0, 0, 0, 0.98);
+}
+
+/* Mobile drawer */
+[data-theme="dark"] .notification-drawer {
+  background: #252a33;
+}
+
+[data-theme="dark"] .notification-drawer::before {
+  background: #3f454e;
+}
+
+[data-theme="dark"] .notification-drawer-header,
+[data-theme="dark"] .notification-drawer-footer {
+  border-color: var(--border-color);
+  background: #252a33;
+}
+
+/* Theme preview sections */
+[data-theme="dark"] .theme-preview-banner-content {
+  background: #1a1d24;
+}
+
+/* Scrollbar styling for dark mode */
+[data-theme="dark"] ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: #1a1d24;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: #3f454e;
+  border-radius: 4px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: #4f555e;
+}
+
+/* Selection color */
+[data-theme="dark"] ::selection {
+  background: rgba(59, 130, 246, 0.4);
+  color: white;
+}
+
+/* ============================================
+   THEME TOGGLE BUTTON STYLES
+   ============================================ */
+
+.theme-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border: none;
+  background: var(--light-gray);
+  border-radius: 50%;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-toggle-btn:hover {
+  background: var(--border-color);
+  color: var(--primary-gold);
+  transform: scale(1.05);
+}
+
+.theme-toggle-btn:active {
+  transform: scale(0.95);
+}
+
+/* Icon animations */
+.theme-toggle-icon {
+  transition: transform 0.3s ease, opacity 0.2s ease;
+}
+
+.theme-toggle-btn:hover .theme-toggle-icon {
+  transform: rotate(15deg);
+}
+
+/* Sun icon glow on hover in dark mode */
+[data-theme="dark"] .theme-toggle-btn:hover {
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--primary-gold);
+  box-shadow: 0 0 12px rgba(251, 191, 36, 0.3);
+}
+
+/* Moon icon glow on hover in light mode */
+[data-theme="light"] .theme-toggle-btn:hover,
+:root:not([data-theme]) .theme-toggle-btn:hover {
+  background: rgba(30, 64, 175, 0.1);
+  color: var(--primary-blue);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .theme-toggle-btn {
+    width: 38px;
+    height: 38px;
+  }
+}
+
+@media (max-width: 480px) {
+  .theme-toggle-btn {
+    width: 36px;
+    height: 36px;
+  }
+}

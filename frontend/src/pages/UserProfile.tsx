@@ -3,12 +3,14 @@ import { useParams, useNavigate } from "react-router-dom";
 import { userService, postService } from "../services/api";
 import { User, Post as PostType } from "../types";
 import PostComponent from "../components/Post";
+import { useSession } from "../contexts/SessionContext";
 import { FiAlertCircle, FiArrowLeft, FiInbox } from 'react-icons/fi';
 import "../styles/index.css";
 
 const UserProfile: React.FC = () => {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
+  const { user: currentUser } = useSession();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState<PostType[]>([]);
@@ -39,11 +41,10 @@ const UserProfile: React.FC = () => {
       const fetchedUser = response.data;
       
       // Check if this is the current user's profile
-      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
       const fetchedUserId = fetchedUser._id || fetchedUser.id;
-      const currentUserId = currentUser._id || currentUser.id;
+      const currentUserId = currentUser?._id || currentUser?.id;
       
-      if (fetchedUserId === currentUserId || fetchedUser.email === currentUser.email) {
+      if (currentUser && (fetchedUserId === currentUserId || fetchedUser.email === currentUser.email)) {
         navigate('/profile', { replace: true });
         return;
       }
