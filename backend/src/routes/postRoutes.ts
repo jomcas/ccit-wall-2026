@@ -26,8 +26,8 @@ const router = Router();
 // Note: upload.array() must come before validateCreatePost since it parses multipart/form-data
 router.post('/posts', authMiddleware, upload.array('images', 4), validateCreatePost, createPost);
 
-// Get all posts (public)
-router.get('/posts', getAllPosts);
+// Get all posts 
+router.get('/posts', authMiddleware, getAllPosts);
 
 // Search posts with query validation
 router.get('/posts/search', authMiddleware, validateSearchQuery, searchPosts);

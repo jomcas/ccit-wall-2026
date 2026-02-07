@@ -22,13 +22,8 @@ import CIDR from 'ip-cidr';
 export const restrictHttpMethods = (req: Request, res: Response, next: NextFunction) => {
   const enableCors = process.env.ENABLE_CORS === 'true';
   
-  // Base allowed methods
-  const allowedMethods = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD']);
-  
-  // Add OPTIONS if CORS is enabled (detected by presence of CORS middleware or env flag)
-  if (enableCors) {
-    allowedMethods.add('OPTIONS');
-  }
+  // Base allowed methods - OPTIONS is always allowed for CORS preflight support
+  const allowedMethods = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']);
   
   if (!allowedMethods.has(req.method)) {
     return res.status(405).json({

@@ -137,7 +137,19 @@ if (process.env.CLIENT_URL && !allowedOrigins.includes(process.env.CLIENT_URL)) 
 }
 
 app.use(cors({
-  origin: allowedOrigins,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (e.g., mobile apps, curl, server-to-server)
+    if (!origin) return callback(null, true);
+    // Allow any Vercel preview deployment URL for this project
+    if (origin.match(/^https:\/\/ccit-wall-2026.*\.vercel\.app$/)) {
+      return callback(null, true);
+    }
+    // Allow explicitly listed origins
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
