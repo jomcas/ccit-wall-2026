@@ -122,7 +122,15 @@ app.use(limiter);
 // CORS is explicitly enabled here. Origins are restricted to CLIENT_URL.
 // For production, ensure CLIENT_URL is set to your frontend domain only.
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: [
+    process.env.CLIENT_URL || 'http://localhost:3000',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:3001',
+    'http://127.0.0.1:3001',
+    'http://localhost:3002',
+    'https://ccit-wall-2026-d5sb.vercel.app'
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
