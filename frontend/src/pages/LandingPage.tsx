@@ -1,11 +1,17 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { FiUsers, FiShare2, FiBookOpen, FiMapPin, FiLogIn, FiUserPlus } from 'react-icons/fi';
+import ThemeToggle from '../components/ThemeToggle';
 import '../styles/LandingPage.css';
 
 const LandingPage: React.FC = () => {
   return (
     <div className="landing-page">
+      {/* Floating Theme Toggle */}
+      <div className="landing-theme-toggle">
+        <ThemeToggle />
+      </div>
+
       {/* Hero Section */}
       <section className="hero-section">
         <div className="hero-content">

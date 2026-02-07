@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { authService } from '../services/api';
 import { FiAlertCircle, FiCheckCircle, FiLock, FiArrowLeft } from 'react-icons/fi';
+import ThemeToggle from '../components/ThemeToggle';
 import '../styles/index.css';
 
 const ResetPassword: React.FC = () => {
@@ -62,38 +63,51 @@ const ResetPassword: React.FC = () => {
 
   if (success) {
     return (
-      <div className="container" style={{ padding: '60px 20px' }}>
-        <div className="card" style={{ maxWidth: '420px', margin: '0 auto', padding: '40px', textAlign: 'center' }}>
-          <div style={{ 
-            width: '64px', 
-            height: '64px', 
-            borderRadius: '50%', 
-            backgroundColor: 'var(--success-green)', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            margin: '0 auto 24px'
-          }}>
-            <FiCheckCircle size={32} color="white" />
+      <div className="auth-page">
+        {/* Floating Theme Toggle */}
+        <div className="auth-theme-toggle">
+          <ThemeToggle />
+        </div>
+
+        <div className="container" style={{ padding: '60px 20px' }}>
+          <div className="card" style={{ maxWidth: '420px', margin: '0 auto', padding: '40px', textAlign: 'center' }}>
+            <div style={{ 
+              width: '64px', 
+              height: '64px', 
+              borderRadius: '50%', 
+              backgroundColor: 'var(--success-green)', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              margin: '0 auto 24px'
+            }}>
+              <FiCheckCircle size={32} color="white" />
+            </div>
+            <h2 className="page-title" style={{ marginBottom: '16px' }}>Password Reset Successful</h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', lineHeight: '1.6' }}>
+              Your password has been successfully reset. You can now sign in with your new password.
+            </p>
+            <Link 
+              to="/login" 
+              className="button button-primary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+            >
+              <FiLock size={16} /> Sign In
+            </Link>
           </div>
-          <h2 className="page-title" style={{ marginBottom: '16px' }}>Password Reset Successful</h2>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', lineHeight: '1.6' }}>
-            Your password has been successfully reset. You can now sign in with your new password.
-          </p>
-          <Link 
-            to="/login" 
-            className="button button-primary"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-          >
-            <FiLock size={16} /> Sign In
-          </Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container" style={{ padding: '60px 20px' }}>
+    <div className="auth-page">
+      {/* Floating Theme Toggle */}
+      <div className="auth-theme-toggle">
+        <ThemeToggle />
+      </div>
+
+      <div className="container" style={{ padding: '60px 20px' }}>
       <div className="card" style={{ maxWidth: '420px', margin: '0 auto', padding: '40px' }}>
         <h2 className="page-title" style={{ textAlign: 'center', marginBottom: '8px' }}>Reset Your Password</h2>
         <p className="page-subtitle" style={{ textAlign: 'center', marginBottom: '32px' }}>
@@ -156,6 +170,7 @@ const ResetPassword: React.FC = () => {
           </Link>
         </p>
       </div>
+    </div>
     </div>
   );
 };

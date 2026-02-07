@@ -469,3 +469,188 @@
     justify-content: center;
   }
 }
+
+/* ============================================
+   FLOATING THEME TOGGLE FOR LANDING PAGE
+   ============================================ */
+
+.landing-theme-toggle {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 1000;
+}
+
+.landing-theme-toggle .theme-toggle-btn {
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
+}
+
+.landing-theme-toggle .theme-toggle-btn:hover {
+  background: white;
+  transform: scale(1.1);
+}
+
+[data-theme="dark"] .landing-theme-toggle .theme-toggle-btn {
+  background: rgba(37, 42, 51, 0.95);
+  color: var(--primary-gold);
+}
+
+[data-theme="dark"] .landing-theme-toggle .theme-toggle-btn:hover {
+  background: #32373f;
+  box-shadow: 0 4px 20px rgba(251, 191, 36, 0.2);
+}
+
+/* ============================================
+   DARK MODE STYLES FOR LANDING PAGE
+   ============================================ */
+
+/* Hero Section - Dark Mode */
+[data-theme="dark"] .hero-section {
+  background: linear-gradient(135deg, rgba(26, 29, 36, 0.95) 0%, rgba(37, 42, 51, 0.9) 100%),
+    url('https://picsum.photos/1920/1080?random=1') center/cover no-repeat;
+}
+
+[data-theme="dark"] .hero-logo {
+  background: #252a33;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .hero-btn-primary {
+  background: var(--primary-gold);
+  color: #1a1d24;
+}
+
+[data-theme="dark"] .hero-btn-primary:hover {
+  background: var(--primary-gold-hover);
+}
+
+[data-theme="dark"] .hero-btn-secondary {
+  border-color: var(--primary-gold);
+  color: var(--primary-gold);
+}
+
+[data-theme="dark"] .hero-btn-secondary:hover {
+  background: rgba(251, 191, 36, 0.1);
+}
+
+/* About Section - Dark Mode */
+[data-theme="dark"] .about-section {
+  background: #1a1d24;
+}
+
+[data-theme="dark"] .section-title {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .section-subtitle {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .about-text h3 {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .about-text p {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .about-image {
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+/* Features Section - Dark Mode */
+[data-theme="dark"] .features-section {
+  background: #252a33;
+}
+
+[data-theme="dark"] .feature-card {
+  background: #1a1d24;
+  border-color: #3a3f4a;
+}
+
+[data-theme="dark"] .feature-card:hover {
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  border-color: var(--primary-gold);
+}
+
+[data-theme="dark"] .feature-icon {
+  background: linear-gradient(135deg, var(--primary-gold) 0%, #f59e0b 100%);
+}
+
+[data-theme="dark"] .feature-card h3 {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .feature-card p {
+  color: #94a3b8;
+}
+
+/* Gallery Section - Dark Mode */
+[data-theme="dark"] .gallery-section {
+  background: #1a1d24;
+}
+
+[data-theme="dark"] .gallery-item {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Contact Section - Dark Mode */
+[data-theme="dark"] .contact-section {
+  background: #252a33;
+}
+
+[data-theme="dark"] .contact-card {
+  background: #1a1d24;
+  border-color: #3a3f4a;
+}
+
+[data-theme="dark"] .contact-card h3 {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .contact-card h3 .icon {
+  background: linear-gradient(135deg, var(--primary-gold) 0%, #f59e0b 100%);
+}
+
+[data-theme="dark"] .contact-item .label {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .contact-item .value {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .contact-item a {
+  color: var(--primary-gold);
+}
+
+/* Footer - Dark Mode */
+[data-theme="dark"] .landing-footer {
+  background: linear-gradient(135deg, #1a1d24 0%, #252a33 100%);
+}
+
+[data-theme="dark"] .footer-bottom {
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Responsive adjustments for theme toggle */
+@media (max-width: 768px) {
+  .landing-theme-toggle {
+    top: 16px;
+    right: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .landing-theme-toggle {
+    top: 12px;
+    right: 12px;
+  }
+  
+  .landing-theme-toggle .theme-toggle-btn {
+    width: 38px;
+    height: 38px;
+  }
+}
