@@ -246,11 +246,16 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 // ============================================================================
 // Start Server
 // ============================================================================
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT} (${NODE_ENV})`);
-  console.log(`Trust Proxy: ${isProd && process.env.ENABLE_TRUST_PROXY !== 'false' ? 'enabled' : 'disabled'}`);
-  console.log(`Rate Limit: ${process.env.RATE_LIMIT_MAX || 200} requests per ${process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000}ms`);
-});
+// Only listen if not running as a Vercel serverless function
+if (process.env.VERCEL === undefined) {
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT} (${NODE_ENV})`);
+    console.log(`Trust Proxy: ${isProd && process.env.ENABLE_TRUST_PROXY !== 'false' ? 'enabled' : 'disabled'}`);
+    console.log(`Rate Limit: ${process.env.RATE_LIMIT_MAX || 200} requests per ${process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000}ms`);
+  });
+} else {
+  console.log(`Running as Vercel serverless function (${NODE_ENV})`);
+}
 
 export default app;
 
