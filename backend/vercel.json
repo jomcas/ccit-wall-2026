@@ -1,20 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "builds": [
-    {
-      "src": "dist/index.js",
-      "use": "@vercel/node",
-      "config": {
-        "maxLambdaSize": "50mb"
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "dist/index.js"
-    }
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api" }
   ]
 }
