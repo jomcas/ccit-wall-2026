@@ -205,26 +205,9 @@ app.get('/health', (req, res) => {
   res.json({ status: 'CCIT Wall API is running' });
 });
 
-// Serve frontend in production - MUST be after all API routes
-app.get('*', (req, res, next) => {
-  // Don't intercept API routes - let them fall through to 404 handler
-  if (req.path.startsWith('/api')) {
-    return res.status(404).json({ error: 'Not Found', message: 'API endpoint not found' });
-  }
-  
-  // Resolve absolute path to frontend build
-  // Use __dirname to ensure correct path regardless of working directory
-  const indexPath = path.join(__dirname, '..', '..', 'frontend', 'build', 'index.html');
-  
-  // Only serve index.html if it exists (production build)
-  if (fs.existsSync(indexPath)) {
-    res.sendFile(indexPath);
-  } else {
-    res.status(404).json({ 
-      error: 'Not Found',
-      message: 'Frontend build not found. Run `npm run build` in frontend directory for production.'
-    });
-  }
+// Catch-all for unknown routes
+app.use('*', (req, res) => {
+  res.status(404).json({ error: 'Not Found', message: 'API endpoint not found' });
 });
 
 // ============================================================================
