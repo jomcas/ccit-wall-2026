@@ -48,6 +48,46 @@ if (isProd && process.env.ENABLE_TRUST_PROXY !== 'false') {
 }
 
 // ============================================================================
+// CORS - Client URL Configuration (MUST be before security middleware)
+// ============================================================================
+// CORS is explicitly enabled here. Origins are restricted to CLIENT_URL.
+// For production, ensure CLIENT_URL is set to your frontend domain only.
+// This MUST be placed before restrictHttpMethods to properly handle OPTIONS preflight requests.
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:3001',
+  'http://127.0.0.1:3001',
+  'http://localhost:3002',
+  'https://ccit-wall-2026-d5sb.vercel.app',
+  'https://ccit-wall-2026.vercel.app'
+];
+
+// Add CLIENT_URL if it's set in environment
+if (process.env.CLIENT_URL && !allowedOrigins.includes(process.env.CLIENT_URL)) {
+  allowedOrigins.push(process.env.CLIENT_URL);
+}
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (e.g., mobile apps, curl, server-to-server)
+    if (!origin) return callback(null, true);
+    // Allow any Vercel preview deployment URL for this project
+    if (origin.match(/^https:\/\/ccit-wall-2026.*\.vercel\.app$/)) {
+      return callback(null, true);
+    }
+    // Allow explicitly listed origins
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// ============================================================================
 // SECURITY: Helmet - Comprehensive HTTP Header Hardening
 // ============================================================================
 // Helmet sets various HTTP headers to protect against common attacks:
@@ -115,45 +155,6 @@ const limiter = rateLimit({
 
 // Apply global rate limiter to all routes
 app.use(limiter);
-
-// ============================================================================
-// CORS - Client URL Configuration
-// ============================================================================
-// CORS is explicitly enabled here. Origins are restricted to CLIENT_URL.
-// For production, ensure CLIENT_URL is set to your frontend domain only.
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
-  'http://localhost:3001',
-  'http://127.0.0.1:3001',
-  'http://localhost:3002',
-  'https://ccit-wall-2026-d5sb.vercel.app',
-  'https://ccit-wall-2026.vercel.app'
-];
-
-// Add CLIENT_URL if it's set in environment
-if (process.env.CLIENT_URL && !allowedOrigins.includes(process.env.CLIENT_URL)) {
-  allowedOrigins.push(process.env.CLIENT_URL);
-}
-
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (e.g., mobile apps, curl, server-to-server)
-    if (!origin) return callback(null, true);
-    // Allow any Vercel preview deployment URL for this project
-    if (origin.match(/^https:\/\/ccit-wall-2026.*\.vercel\.app$/)) {
-      return callback(null, true);
-    }
-    // Allow explicitly listed origins
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    callback(new Error('Not allowed by CORS'));
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
 
 // ============================================================================
 // Body Parsing Middleware
