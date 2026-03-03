@@ -1,100 +1,97 @@
 import { Request, Response } from 'express';
 import User from '../models/User';
-import { hashPassword, comparePasswords, generateToken } from '../utils/auth';
-import { generateSecureToken, sha256Hash } from '../utils/crypto';
-import { sendPasswordResetEmail } from '../utils/email';
+import { adminAuth } from '../utils/firebase';
 import { logger, getRequestContext } from '../utils/logger';
 
 /**
- * SECURITY: Generic error message for authentication failures
- * Using the same message for all auth failures prevents user enumeration attacks
- */
-const AUTH_ERROR_MESSAGE = 'Invalid email and/or password';
-
-/**
- * Register a new user
+ * Sync / upsert user profile after Firebase authentication.
  * 
- * SECURITY CONSIDERATIONS:
- * - Password is hashed before storage using bcrypt
- * - Uses generic error message to prevent user enumeration
- * - Never returns the password in responses
+ * Called by the frontend after a successful Firebase sign-in (email/password or SSO).
+ * Creates a MongoDB user record on first login or returns the existing one.
+ * The request must already be authenticated (authMiddleware verifies the token
+ * and attaches req.user, but for first-time users the middleware will 404).
+ * 
+ * Because first-time users won't exist in Mongo yet, this endpoint performs its
+ * own Firebase token verification so it can run WITHOUT authMiddleware.
  */
-export const register = async (req: Request, res: Response) => {
+export const syncProfile = async (req: Request, res: Response) => {
   try {
-    const { name, email, password, role } = req.body;
-
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      // SECURITY: Return generic error to prevent user enumeration
-      // An attacker cannot determine if an email is registered
-      return res.status(400).json({ message: 'Registration failed. Please check your information and try again.' });
+    // Extract and verify Firebase ID token directly
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'Authentication required' });
     }
 
-    const hashedPassword = await hashPassword(password);
-    const user = new User({
-      name,
-      email,
-      password: hashedPassword,
-      role: role || 'student',
-    });
+    const token = authHeader.slice(7);
+    const decodedToken = await adminAuth.verifyIdToken(token);
+    const { uid, email, name, picture, email_verified, firebase } = decodedToken;
 
-    await user.save();
+    if (!uid || !email) {
+      return res.status(400).json({ message: 'Invalid token — missing uid or email' });
+    }
 
-    const token = generateToken(user._id.toString(), user.role);
-    res.status(201).json({
-      message: 'User registered successfully',
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-    });
-  } catch (error) {
-    // SECURITY: Don't expose internal error details
-    res.status(500).json({ message: 'An error occurred during registration' });
-  }
-};
+    // Determine auth provider
+    const signInProvider = firebase?.sign_in_provider || 'password';
 
-/**
- * Login a user
- * 
- * SECURITY CONSIDERATIONS:
- * - Uses generic error message for both invalid email and password
- * - Prevents timing attacks by always comparing password (even for non-existent users)
- * - Never returns the password in responses
- */
-export const login = async (req: Request, res: Response) => {
-  try {
-    const { email, password } = req.body;
+    // Check for optional role from request body (only used on first registration)
+    const { role: requestedRole, name: requestedName } = req.body;
 
-    const user = await User.findOne({ email });
+    // Try to find existing user
+    let user = await User.findOne({ firebaseUid: uid });
+
     if (!user) {
-      // SECURITY: Return generic error to prevent user enumeration
-      return res.status(401).json({ message: AUTH_ERROR_MESSAGE });
+      // First login — create Mongo user record
+      const displayName = requestedName || name || email.split('@')[0];
+      const userRole = ['student', 'teacher'].includes(requestedRole) ? requestedRole : 'student';
+
+      user = new User({
+        name: displayName,
+        email,
+        firebaseUid: uid,
+        authProvider: signInProvider,
+        emailVerified: email_verified || false,
+        role: userRole,
+        profilePicture: picture || undefined,
+      });
+
+      await user.save();
+      logger.info('New user created via Firebase sync', { userId: user._id.toString(), provider: signInProvider });
+    } else {
+      // Returning user — update email verification status and provider if changed
+      let needsSave = false;
+
+      if (email_verified && !user.emailVerified) {
+        user.emailVerified = true;
+        needsSave = true;
+      }
+
+      if (signInProvider !== user.authProvider) {
+        user.authProvider = signInProvider as any;
+        needsSave = true;
+      }
+
+      if (needsSave) {
+        await user.save();
+      }
     }
 
-    const isPasswordValid = await comparePasswords(password, user.password);
-    if (!isPasswordValid) {
-      // SECURITY: Same error message for wrong password
-      return res.status(401).json({ message: AUTH_ERROR_MESSAGE });
-    }
-
-    const token = generateToken(user._id.toString(), user.role);
     res.json({
-      message: 'Login successful',
-      token,
+      message: 'Profile synced',
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
+        profilePicture: user.profilePicture,
+        emailVerified: user.emailVerified,
+        authProvider: user.authProvider,
+        bio: user.bio,
+        contactInformation: user.contactInformation,
       },
     });
   } catch (error) {
-    // SECURITY: Don't expose internal error details
-    res.status(500).json({ message: 'An error occurred during login' });
+    logger.error('Profile sync failed', error instanceof Error ? error : new Error('Unknown error'));
+    res.status(500).json({ message: 'An error occurred during profile sync' });
   }
 };
 
@@ -103,7 +100,7 @@ export const getProfile = async (req: Request, res: Response) => {
     if (!req.user) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
-    const user = await User.findById(req.user.userId).select('-password');
+    const user = await User.findById(req.user.userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -123,7 +120,7 @@ export const updateProfile = async (req: Request, res: Response) => {
       req.user.userId,
       { name, bio, profilePicture, contactInformation },
       { new: true }
-    ).select('-password');
+    );
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -137,7 +134,7 @@ export const updateProfile = async (req: Request, res: Response) => {
 
 export const getAllUsers = async (req: Request, res: Response) => {
   try {
-    const users = await User.find().select('-password');
+    const users = await User.find();
     res.json(users);
   } catch (error) {
     res.status(500).json({ message: 'An error occurred while fetching users' });
@@ -146,7 +143,7 @@ export const getAllUsers = async (req: Request, res: Response) => {
 
 export const getUserById = async (req: Request, res: Response) => {
   try {
-    const user = await User.findById(req.params.id).select('-password');
+    const user = await User.findById(req.params.id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -178,7 +175,7 @@ export const searchUsers = async (req: Request, res: Response) => {
 
     const users = await User.find({
       name: { $regex: query, $options: 'i' },
-    }).select('-password');
+    });
 
     res.json(users);
   } catch (error) {
@@ -186,122 +183,4 @@ export const searchUsers = async (req: Request, res: Response) => {
   }
 };
 
-// ============================================================================
-// PASSWORD RESET
-// ============================================================================
 
-/**
- * Password reset token expiration time (1 hour)
- */
-const PASSWORD_RESET_EXPIRES_MS = 60 * 60 * 1000; // 1 hour
-
-/**
- * Request a password reset
- * 
- * SECURITY CONSIDERATIONS:
- * - Always returns success message even if email doesn't exist (prevents enumeration)
- * - Token is hashed before storage (prevents database leak exposure)
- * - Token expires after 1 hour
- * - Uses secure random token generation
- */
-export const forgotPassword = async (req: Request, res: Response) => {
-  const context = getRequestContext(req);
-  
-  try {
-    const { email } = req.body;
-
-    // Find user by email
-    const user = await User.findOne({ email: email.toLowerCase() });
-
-    // SECURITY: Always return success to prevent email enumeration
-    // Even if user doesn't exist, we return the same response
-    if (!user) {
-      logger.info('Password reset requested for non-existent email', context);
-      return res.json({
-        message: 'If an account with that email exists, we have sent a password reset link.',
-      });
-    }
-
-    // Generate a secure random token
-    const resetToken = generateSecureToken(32); // 32 bytes = 64 hex chars
-    
-    // Hash the token before storing in database
-    // This way, even if the database is compromised, the attacker can't use the tokens
-    const hashedToken = sha256Hash(resetToken);
-
-    // Set token and expiration on user
-    user.passwordResetToken = hashedToken;
-    user.passwordResetExpires = new Date(Date.now() + PASSWORD_RESET_EXPIRES_MS);
-    await user.save();
-
-    // Send password reset email
-    const emailResult = await sendPasswordResetEmail(email, resetToken, user.name);
-
-    if (!emailResult.success) {
-      logger.error('Failed to send password reset email', new Error(emailResult.error || 'Unknown error'), context);
-      // Don't reveal email sending failure to user
-    } else {
-      logger.info('Password reset email sent', { ...context, userId: user._id.toString() });
-    }
-
-    // SECURITY: Same response regardless of whether email was sent
-    res.json({
-      message: 'If an account with that email exists, we have sent a password reset link.',
-    });
-  } catch (error) {
-    logger.error('Password reset request failed', error instanceof Error ? error : new Error('Unknown error'), context);
-    res.status(500).json({ message: 'An error occurred. Please try again later.' });
-  }
-};
-
-/**
- * Reset password using token
- * 
- * SECURITY CONSIDERATIONS:
- * - Token is compared using hash (constant time not needed since we're comparing hashes)
- * - Token expiration is checked
- * - Token is invalidated after use
- * - Password is hashed before storage
- */
-export const resetPassword = async (req: Request, res: Response) => {
-  const context = getRequestContext(req);
-  
-  try {
-    const { token } = req.params;
-    const { password } = req.body;
-
-    // Hash the provided token to compare with stored hash
-    const hashedToken = sha256Hash(token);
-
-    // Find user with valid (non-expired) reset token
-    const user = await User.findOne({
-      passwordResetToken: hashedToken,
-      passwordResetExpires: { $gt: new Date() },
-    });
-
-    if (!user) {
-      logger.warn('Invalid or expired password reset token used', context);
-      return res.status(400).json({
-        message: 'Password reset token is invalid or has expired.',
-      });
-    }
-
-    // Hash the new password
-    const hashedPassword = await hashPassword(password);
-
-    // Update user's password and clear reset token fields
-    user.password = hashedPassword;
-    user.passwordResetToken = undefined;
-    user.passwordResetExpires = undefined;
-    await user.save();
-
-    logger.info('Password reset successful', { ...context, userId: user._id.toString() });
-
-    res.json({
-      message: 'Your password has been reset successfully. You can now log in with your new password.',
-    });
-  } catch (error) {
-    logger.error('Password reset failed', error instanceof Error ? error : new Error('Unknown error'), context);
-    res.status(500).json({ message: 'An error occurred. Please try again later.' });
-  }
-};

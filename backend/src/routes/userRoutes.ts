@@ -1,36 +1,26 @@
 import { Router } from 'express';
 import {
-  register,
-  login,
+  syncProfile,
   getProfile,
   updateProfile,
   getAllUsers,
   getUserById,
   deleteUser,
   searchUsers,
-  forgotPassword,
-  resetPassword,
 } from '../controllers/userController';
 import { authMiddleware, adminMiddleware } from '../middleware/auth';
 import {
-  validateRegistration,
-  validateLogin,
   validateProfileUpdate,
   validateObjectId,
   validateSearchQuery,
-  validateForgotPassword,
-  validateResetPassword,
 } from '../middleware/validation';
 
 const router = Router();
 
-// Public routes with input validation
-router.post('/register', validateRegistration, register);
-router.post('/login', validateLogin, login);
-
-// Password Reset Routes (public - no auth required)
-router.post('/forgot-password', validateForgotPassword, forgotPassword);
-router.post('/reset-password/:token', validateResetPassword, resetPassword);
+// Firebase profile sync — called after every Firebase sign-in/sign-up
+// Does NOT use authMiddleware because first-time users don't exist in Mongo yet;
+// the controller verifies the Firebase token directly.
+router.post('/sync', syncProfile);
 
 // Protected routes with input validation
 router.get('/profile', authMiddleware, getProfile);
