@@ -136,6 +136,10 @@ function isSensitiveKey(key: string): boolean {
  * Sanitize a string value by replacing sensitive patterns
  */
 function sanitizeString(value: string): string {
+  if (!value || typeof value !== 'string') {
+    return String(value || '');
+  }
+  
   let sanitized = value;
   
   // Redact JWT tokens

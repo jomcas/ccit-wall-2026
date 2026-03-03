@@ -4,7 +4,7 @@ import { userService, postService } from "../services/api";
 import { User, Post as PostType } from "../types";
 import PostComponent from "../components/Post";
 import { useSession } from "../contexts/SessionContext";
-import { FiAlertCircle, FiArrowLeft, FiInbox } from 'react-icons/fi';
+import { FiAlertCircle, FiArrowLeft, FiInbox, FiMail, FiFileText, FiPhone } from 'react-icons/fi';
 import "../styles/index.css";
 
 const UserProfile: React.FC = () => {
@@ -98,113 +98,122 @@ const UserProfile: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="container" style={{ padding: "32px 20px" }}>
-        <p className="loading-text">Loading profile...</p>
+      <div className="profile-container">
+        <div className="profile-loading">
+          <div className="profile-loading-spinner"></div>
+          <p>Loading profile...</p>
+        </div>
       </div>
     );
   }
 
   if (error || !user) {
     return (
-      <div className="container" style={{ padding: "32px 20px" }}>
-        <div className="alert alert-error" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <FiAlertCircle size={18} /> {error || "User not found"}
+      <div className="profile-container">
+        <div className="profile-error">
+          <FiAlertCircle size={48} />
+          <p>{error || "User not found"}</p>
+          <button
+            onClick={() => navigate("/feed")}
+            className="profile-edit-btn"
+            style={{ marginTop: "var(--space-4)" }}
+          >
+            <FiArrowLeft size={16} /> Back to Feed
+          </button>
         </div>
-        <button
-          onClick={() => navigate("/feed")}
-          className="button button-primary"
-          style={{ marginTop: "16px", display: 'flex', alignItems: 'center', gap: '8px' }}
-        >
-          <FiArrowLeft size={16} /> Back to Feed
-        </button>
       </div>
     );
   }
 
   return (
-    <div className="container" style={{ padding: "32px 20px" }}>
-      <button
-        onClick={() => navigate("/")}
-        className="button btn-ghost"
-        style={{ marginBottom: "24px", display: 'flex', alignItems: 'center', gap: '8px' }}
-      >
-        <FiArrowLeft size={16} /> Back to Feed
-      </button>
-
-      <div style={{ marginBottom: "32px" }}>
-        <h1 className="page-title">{user.name}'s Profile</h1>
+    <div className="profile-container">
+      <div className="profile-header-section">
+        <button
+          onClick={() => navigate("/")}
+          className="button btn-ghost"
+          style={{ marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '8px' }}
+        >
+          <FiArrowLeft size={16} /> Back to Feed
+        </button>
+        <h1 className="profile-page-title">{user.name}'s Profile</h1>
       </div>
 
       {/* User Profile Card */}
       <div className="profile-card">
-        <div className="profile-grid">
-          <div className="profile-left">
+        <div className="profile-view">
+          {/* Avatar Section */}
+          <div className="profile-avatar-section">
             {user.profilePicture ? (
               <img
                 src={user.profilePicture}
                 alt={user.name}
-                className="profile-avatar"
+                className="profile-avatar-large"
               />
             ) : (
-              <div className="avatar-placeholder">
+              <div className="profile-avatar-placeholder-large">
                 {user.name.charAt(0).toUpperCase()}
               </div>
             )}
+            <h2 className="profile-display-name">{user.name}</h2>
+            <span className="profile-role-badge">
+              {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+            </span>
           </div>
 
-          <div className="profile-right">
-            <div className="profile-info">
-              <div className="field">
-                <strong>Name:</strong>
-                <div className="value">{user.name}</div>
+          {/* Info Grid */}
+          <div className="profile-info-grid">
+            <div className="profile-info-item">
+              <div className="profile-info-icon">
+                <FiMail size={18} />
               </div>
-              <div className="field">
-                <strong>Email:</strong>
-                <div className="value">{user.email}</div>
+              <div className="profile-info-content">
+                <span className="profile-info-label">Email</span>
+                <span className="profile-info-value">{user.email}</span>
               </div>
-              <div className="field">
-                <strong>Role:</strong>
-                <div className="value">
-                  {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                </div>
-              </div>
-              {user.bio && (
-                <div className="field">
-                  <strong>Bio:</strong>
-                  <div className="value" style={{ marginTop: 2 }}>
-                    {user.bio}
-                  </div>
-                </div>
-              )}
-              {user.contactInformation && (
-                <div className="field">
-                  <strong>Contact Information:</strong>
-                  <div className="value" style={{ marginTop: 2 }}>
-                    {user.contactInformation}
-                  </div>
-                </div>
-              )}
             </div>
+
+            {user.bio && (
+              <div className="profile-info-item profile-info-full">
+                <div className="profile-info-icon">
+                  <FiFileText size={18} />
+                </div>
+                <div className="profile-info-content">
+                  <span className="profile-info-label">Bio</span>
+                  <span className="profile-info-value">{user.bio}</span>
+                </div>
+              </div>
+            )}
+
+            {user.contactInformation && (
+              <div className="profile-info-item profile-info-full">
+                <div className="profile-info-icon">
+                  <FiPhone size={18} />
+                </div>
+                <div className="profile-info-content">
+                  <span className="profile-info-label">Contact Information</span>
+                  <span className="profile-info-value">{user.contactInformation}</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* User Posts Section */}
-      <div style={{ marginTop: "48px" }}>
-        <div style={{ marginBottom: "24px" }}>
-          <h2 className="section-title">{user.name}'s Posts</h2>
-        </div>
+      <div className="profile-posts-section">
+        <h2 className="section-title">{user.name}'s Posts</h2>
 
         {postsLoading ? (
           <div className="profile-card">
             <p className="loading-text">Loading posts...</p>
           </div>
         ) : posts.length === 0 ? (
-          <div className="empty-state" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-            <FiInbox size={20} /> This user hasn't shared any posts yet.
+          <div className="feed-empty-state">
+            <FiInbox size={48} />
+            <span className="feed-empty-title">This user hasn't shared any posts yet</span>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <div className="posts-list">
             {posts.map((post) => (
               <PostComponent
                 key={post._id || post.id}
