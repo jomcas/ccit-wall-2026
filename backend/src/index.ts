@@ -11,8 +11,6 @@ import commentRoutes from './routes/commentRoutes';
 import adminRoutes from './routes/adminRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import { restrictHttpMethods, ipAllowlist } from './middleware/security';
-import path from 'path';
-import fs from 'fs';
 
 dotenv.config();
 
@@ -161,17 +159,6 @@ app.use(limiter);
 // ============================================================================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// ============================================================================
-// Static File Serving - Uploads Directory
-// ============================================================================
-// Serve uploaded files (images) from the uploads directory
-// Use __dirname to ensure correct path regardless of working directory
-const uploadsPath = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(uploadsPath)) {
-  fs.mkdirSync(uploadsPath, { recursive: true });
-}
-app.use('/uploads', express.static(uploadsPath));
 
 // ============================================================================
 // Database Connection

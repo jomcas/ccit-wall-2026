@@ -1,28 +1,14 @@
 import multer, { FileFilterCallback } from 'multer';
 import path from 'path';
-import fs from 'fs';
 import { Request } from 'express';
 
-// Ensure uploads directory exists
-// Use __dirname to get the correct path relative to this file
-// Go up from src/middleware to backend root, then to uploads
-const uploadDir = path.join(__dirname, '..', '..', 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// Configure storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    // Generate unique filename: timestamp-randomstring.extension
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `${uniqueSuffix}${ext}`);
-  },
-});
+/**
+ * Multer middleware — memory storage
+ *
+ * Files are held in memory buffers (req.files[].buffer) so the
+ * post controller can forward them directly to Firebase Storage.
+ * No local disk writes occur.
+ */
 
 // File filter - only allow images
 const fileFilter = (
@@ -44,9 +30,9 @@ const fileFilter = (
   }
 };
 
-// Create multer instance
+// Create multer instance with memory storage
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   fileFilter,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB max file size

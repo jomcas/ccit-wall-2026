@@ -3,6 +3,7 @@ import Post from '../models/Post';
 import Comment from '../models/Comment';
 import mongoose from 'mongoose';
 import { createNotification, deleteNotification } from '../utils/notificationHelper';
+import { uploadFile, deleteFiles } from '../utils/storage';
 
 export const createPost = async (req: Request, res: Response) => {
   try {
@@ -12,25 +13,18 @@ export const createPost = async (req: Request, res: Response) => {
     
     const { title, description, category, isAnonymous, theme } = req.body;
 
-    // Debug logging for file uploads
-    console.log('=== CREATE POST DEBUG ===');
-    console.log('req.files:', req.files);
-    console.log('req.files length:', Array.isArray(req.files) ? req.files.length : 'not an array');
-    console.log('req.body:', req.body);
-
-    // Process uploaded files (if any)
+    // Upload files to Firebase Storage (if any)
     let attachments: string[] = [];
     if (req.files && Array.isArray(req.files)) {
-      // Construct URLs for uploaded files
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
-      attachments = (req.files as Express.Multer.File[]).map(
-        (file) => `${baseUrl}/uploads/${file.filename}`
+      const uploads = await Promise.all(
+        (req.files as Express.Multer.File[]).map((file) =>
+          uploadFile(file.buffer, file.mimetype, file.originalname)
+        )
       );
-      console.log('Processed attachments:', attachments);
+      attachments = uploads;
     }
 
     // Teachers can only post public posts (announcements and reminders)
-    // Enforce isAnonymous=false for teachers
     const postIsAnonymous = req.user.role === 'teacher' ? false : (isAnonymous === 'true' || isAnonymous === true || false);
 
     const post = new Post({
@@ -103,18 +97,6 @@ export const updatePost = async (req: Request, res: Response) => {
     
     const { title, description, category, isAnonymous, existingImages, theme } = req.body;
 
-    // Debug logging for file uploads
-    console.log('=== UPDATE POST DEBUG ===');
-    console.log('req.files:', req.files);
-    console.log('req.files length:', Array.isArray(req.files) ? req.files.length : 'not an array');
-    if (Array.isArray(req.files)) {
-      req.files.forEach((file, i) => {
-        console.log(`File ${i}:`, file.originalname, file.size, file.mimetype, file.filename);
-      });
-    }
-    console.log('req.body:', req.body);
-    console.log('existingImages:', existingImages);
-
     const post = await Post.findById(req.params.id);
 
     if (!post) {
@@ -129,12 +111,11 @@ export const updatePost = async (req: Request, res: Response) => {
     post.description = description || post.description;
     post.category = category || post.category;
     
-    // Update theme if provided
     if (theme !== undefined) {
       post.theme = theme;
     }
     
-    // Teachers can only post public posts - enforce isAnonymous=false for teachers
+    // Teachers can only post public posts
     if (req.user.role === 'teacher') {
       post.isAnonymous = false;
     } else if (isAnonymous !== undefined) {
@@ -142,8 +123,6 @@ export const updatePost = async (req: Request, res: Response) => {
     }
 
     // Handle image updates
-    // existingImages: JSON string array of URLs to keep from original attachments
-    // req.files: new images being uploaded
     let updatedAttachments: string[] = [];
 
     // Parse existing images to keep (sent as JSON string or array)
@@ -160,30 +139,31 @@ export const updatePost = async (req: Request, res: Response) => {
       }
     }
 
-    // Add newly uploaded images
-    if (req.files && Array.isArray(req.files)) {
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
-      const newImages = (req.files as Express.Multer.File[]).map(
-        (file) => `${baseUrl}/uploads/${file.filename}`
+    // Upload new images to Firebase Storage
+    if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+      const newUrls = await Promise.all(
+        (req.files as Express.Multer.File[]).map((file) =>
+          uploadFile(file.buffer, file.mimetype, file.originalname)
+        )
       );
-      updatedAttachments = [...updatedAttachments, ...newImages];
+      updatedAttachments = [...updatedAttachments, ...newUrls];
     }
 
-    // Only update attachments if images were modified (existingImages was provided or new files uploaded)
+    // Only update attachments if images were modified
     if (existingImages !== undefined || (req.files && Array.isArray(req.files) && req.files.length > 0)) {
+      // Determine which old images were removed and delete from Firebase Storage
+      const oldUrls = post.attachments || [];
+      const removedUrls = oldUrls.filter((url) => !updatedAttachments.includes(url));
+      if (removedUrls.length > 0) {
+        await deleteFiles(removedUrls);
+      }
+
       // Limit to 4 images
       post.attachments = updatedAttachments.slice(0, 4);
     }
 
-    console.log('=== FINAL ATTACHMENTS ===');
-    console.log('updatedAttachments:', updatedAttachments);
-    console.log('post.attachments:', post.attachments);
-
     await post.save();
     await post.populate('author', '-password');
-
-    console.log('=== RESPONSE POST ===');
-    console.log('post.attachments in response:', post.attachments);
 
     res.json({ message: 'Post updated successfully', post });
   } catch (error) {
@@ -205,6 +185,11 @@ export const deletePost = async (req: Request, res: Response) => {
 
     if (post.author.toString() !== req.user.userId && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Not authorized to delete this post' });
+    }
+
+    // Delete attachments from Firebase Storage (best-effort)
+    if (post.attachments && post.attachments.length > 0) {
+      await deleteFiles(post.attachments);
     }
 
     await Post.findByIdAndDelete(req.params.id);
