@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { auth } from '../config/firebase';
 import SessionExpiredDialog from '../components/SessionExpiredDialog';
-import { resetSessionExpiredFlag } from '../services/api';
+import { authService, resetSessionExpiredFlag } from '../services/api';
 
 interface User {
   id?: string;
@@ -19,6 +21,7 @@ interface SessionContextType {
   user: User | null;
   setUser: (user: User | null) => void;
   updateUserData: (updatedUser: User) => void;
+  firebaseReady: boolean;
 }
 
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
@@ -37,11 +40,12 @@ interface SessionProviderProps {
 
 export const SessionProvider: React.FC<SessionProviderProps> = ({ children }) => {
   const [isSessionExpired, setIsSessionExpired] = useState(false);
+  const [firebaseReady, setFirebaseReady] = useState(false);
   const [user, setUser] = useState<User | null>(() => {
     const stored = localStorage.getItem('user');
     return stored ? JSON.parse(stored) : null;
   });
-  
+
   // Use ref to prevent multiple calls in quick succession
   const isHandlingExpiration = useRef(false);
 
@@ -51,34 +55,59 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({ children }) =>
     localStorage.setItem('user', JSON.stringify(updatedUser));
   }, []);
 
+  // Listen to Firebase auth state changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // User is signed in — sync with backend to get Mongo user data
+        try {
+          // Retrieve pending role (set during registration)
+          const pendingRole = localStorage.getItem('pendingRole');
+          const syncData: { role?: string; name?: string } = {};
+          if (pendingRole) {
+            syncData.role = pendingRole;
+            localStorage.removeItem('pendingRole');
+          }
+          if (firebaseUser.displayName) {
+            syncData.name = firebaseUser.displayName;
+          }
+          const res = await authService.syncProfile(syncData);
+          const mongoUser = res.data.user;
+          setUser(mongoUser);
+          localStorage.setItem('user', JSON.stringify(mongoUser));
+          resetSessionExpiredFlag();
+        } catch {
+          // Sync failed — sign out
+          await signOut(auth);
+          setUser(null);
+          localStorage.removeItem('user');
+        }
+      } else {
+        // User is signed out
+        setUser(null);
+        localStorage.removeItem('user');
+      }
+      setFirebaseReady(true);
+    });
+
+    return () => unsubscribe();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleSessionExpired = useCallback(() => {
-    // Prevent multiple calls
-    if (isHandlingExpiration.current || isSessionExpired) {
-      return;
-    }
-    
+    if (isHandlingExpiration.current || isSessionExpired) return;
     isHandlingExpiration.current = true;
-    
-    // Immediately clear auth data to stop any further authenticated requests
-    localStorage.removeItem('token');
+
     localStorage.removeItem('user');
     setUser(null);
-    
-    // Show the dialog
     setIsSessionExpired(true);
   }, [isSessionExpired]);
 
-  const handleLogin = useCallback(() => {
-    // Reset the handling flag
+  const handleLogin = useCallback(async () => {
     isHandlingExpiration.current = false;
-    
-    // Reset the API session expired flag so requests work again
     resetSessionExpiredFlag();
-    
-    // Close dialog
     setIsSessionExpired(false);
-    
-    // Navigate to login and reload to ensure clean state
+    // Sign out of Firebase so the login page can restart the flow
+    await signOut(auth);
     window.location.href = '/login';
   }, []);
 
@@ -99,7 +128,7 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({ children }) =>
   }, []);
 
   return (
-    <SessionContext.Provider value={{ handleSessionExpired, isSessionExpired, user, setUser, updateUserData }}>
+    <SessionContext.Provider value={{ handleSessionExpired, isSessionExpired, user, setUser, updateUserData, firebaseReady }}>
       {children}
       <SessionExpiredDialog
         isOpen={isSessionExpired}

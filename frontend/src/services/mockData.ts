@@ -145,6 +145,5 @@ export const mockComments: Comment[] = [
 // Mock auth response
 export const mockAuthResponse: AuthResponse = {
   message: 'Login successful',
-  token: 'mock_jwt_token_' + Math.random().toString(36).substr(2, 9),
   user: mockUsers[0],
 };

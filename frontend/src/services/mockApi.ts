@@ -28,7 +28,6 @@ export const mockApiService = {
     };
     const response: AuthResponse = {
       message: 'User registered successfully',
-      token: 'mock_token_' + Math.random().toString(36).substr(2, 9),
       user: newUser,
     };
     return { data: response };
@@ -43,7 +42,6 @@ export const mockApiService = {
     return {
       data: {
         message: 'Login successful',
-        token: 'mock_token_' + Math.random().toString(36).substr(2, 9),
         user,
       },
     };
