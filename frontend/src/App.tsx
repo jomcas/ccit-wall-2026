@@ -15,6 +15,7 @@ import About from './pages/About';
 import Layout from './components/Layout';
 import { SessionProvider, useSession } from './contexts/SessionContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import './styles/tokens.css';
 import './styles/index.css';
 import './styles/theme.css';
 
