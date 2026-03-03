@@ -361,7 +361,7 @@
   height: 42px;
   border: 2px solid var(--border);
   background: var(--surface-1);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   color: var(--ink-secondary);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -528,17 +528,17 @@
 
 .auth-error-alert--error {
   background: var(--danger-bg);
-  border: 1px solid var(--danger-border);
+  border: 2px solid var(--danger-border);
 }
 
 .auth-error-alert--warning {
   background: var(--warning-bg);
-  border: 1px solid rgba(161, 98, 7, 0.25);
+  border: 2px solid var(--warning-border, rgba(161, 98, 7, 0.25));
 }
 
 .auth-error-alert--info {
   background: var(--info-bg);
-  border: 1px solid rgba(30, 64, 175, 0.25);
+  border: 2px solid var(--info-border, rgba(30, 64, 175, 0.25));
 }
 
 .auth-error-alert__header {
@@ -551,7 +551,7 @@
   flex-shrink: 0;
   width: 36px;
   height: 36px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -747,7 +747,7 @@
   padding: var(--space-3);
   background: var(--surface-2);
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
+  border: 2px solid var(--border);
 }
 
 .password-requirements__title {
