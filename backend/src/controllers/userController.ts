@@ -36,8 +36,13 @@ export const syncProfile = async (req: Request, res: Response) => {
     // Check for optional role from request body (only used on first registration)
     const { role: requestedRole, name: requestedName } = req.body;
 
-    // Try to find existing user
-    let user = await User.findOne({ firebaseUid: uid });
+    // Try to find existing user by firebaseUid OR email
+    let user = await User.findOne({
+      $or: [
+        { firebaseUid: uid },
+        { email }
+      ]
+    });
 
     if (!user) {
       // First login — create Mongo user record
@@ -57,8 +62,14 @@ export const syncProfile = async (req: Request, res: Response) => {
       await user.save();
       logger.info('New user created via Firebase sync', { userId: user._id.toString(), provider: signInProvider });
     } else {
-      // Returning user — update email verification status and provider if changed
+      // Returning user — update firebaseUid, provider, and email verification status
       let needsSave = false;
+
+      // If firebaseUid changed (user linked a different method), update it
+      if (uid !== user.firebaseUid) {
+        user.firebaseUid = uid;
+        needsSave = true;
+      }
 
       if (email_verified && !user.emailVerified) {
         user.emailVerified = true;

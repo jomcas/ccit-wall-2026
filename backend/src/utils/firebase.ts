@@ -27,7 +27,11 @@ let firebaseApp: App;
 if (!getApps().length) {
   const projectId = process.env.FIREBASE_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+  // Handle both escaped (`\n`) and literal newlines in the private key
+  let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+  if (privateKey) {
+    privateKey = privateKey.replace(/\\n/g, '\n');
+  }
   const storageBucket = process.env.FIREBASE_STORAGE_BUCKET;
 
   if (!projectId || !clientEmail || !privateKey) {
@@ -37,13 +41,22 @@ if (!getApps().length) {
     );
   }
 
-  firebaseApp = initializeApp({
-    credential:
-      projectId && clientEmail && privateKey
-        ? cert({ projectId, clientEmail, privateKey })
-        : undefined,
-    storageBucket: storageBucket || undefined,
-  });
+  try {
+    firebaseApp = initializeApp({
+      credential:
+        projectId && clientEmail && privateKey
+          ? cert({ projectId, clientEmail, privateKey })
+          : undefined,
+      storageBucket: storageBucket || undefined,
+    });
+  } catch (error: any) {
+    logger.error('Firebase initialization error:', error.message);
+    // Initialize with no credential as fallback
+    firebaseApp = initializeApp({
+      credential: undefined,
+      storageBucket: storageBucket || undefined,
+    });
+  }
 } else {
   firebaseApp = getApps()[0];
 }
