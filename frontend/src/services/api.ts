@@ -1,8 +1,7 @@
 import axios from 'axios';
-import { mockApiService } from './mockApi';
+import { auth } from '../config/firebase';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000/api';
-const USE_MOCK_DATA = process.env.REACT_APP_USE_MOCK_DATA === 'true';
 
 // Track if we've already detected an expired session to prevent duplicate handling
 let sessionExpiredHandled = false;
@@ -20,22 +19,25 @@ const api = axios.create({
   },
 });
 
-// Request interceptor - skip requests if session already expired
-api.interceptors.request.use((config) => {
-  // If session is already expired and token is cleared, cancel the request
-  const token = localStorage.getItem('token');
-  if (!token && sessionExpiredHandled) {
-    // Return a cancelled request
+// Request interceptor - attach Firebase ID token
+api.interceptors.request.use(async (config) => {
+  const user = auth.currentUser;
+
+  // If session already expired and no Firebase user, cancel the request
+  if (!user && sessionExpiredHandled) {
     const controller = new AbortController();
     controller.abort();
-    return {
-      ...config,
-      signal: controller.signal,
-    };
+    return { ...config, signal: controller.signal };
   }
-  
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+
+  if (user) {
+    try {
+      const idToken = await user.getIdToken();
+      config.headers.Authorization = `Bearer ${idToken}`;
+    } catch {
+      // Token refresh failed — treat as expired session
+      sessionExpiredHandled = true;
+    }
   }
 
   // For FormData, delete Content-Type header so browser sets it with boundary
@@ -52,24 +54,15 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401 && !sessionExpiredHandled) {
       sessionExpiredHandled = true;
-      // Clear token immediately to prevent further requests
-      localStorage.removeItem('token');
       localStorage.removeItem('user');
     }
     return Promise.reject(error);
   }
 );
 
-// Use mock API if enabled
-const apiService = USE_MOCK_DATA ? mockApiService : {
-  register: (name: string, email: string, password: string, role: string) =>
-    api.post('/auth/register', { name, email, password, role }),
-  login: (email: string, password: string) =>
-    api.post('/auth/login', { email, password }),
-  forgotPassword: (email: string) =>
-    api.post('/auth/forgot-password', { email }),
-  resetPassword: (token: string, password: string) =>
-    api.post(`/auth/reset-password/${token}`, { password }),
+const apiService = {
+  // Sync Firebase user with backend (creates or updates Mongo user)
+  syncProfile: (data?: { role?: string; name?: string }) => api.post('/auth/sync', data || {}),
   getProfile: () => api.get('/auth/profile'),
   updateProfile: (data: any) => api.put('/auth/profile', data),
   getAllUsers: () => api.get('/auth/users'),
@@ -79,16 +72,8 @@ const apiService = USE_MOCK_DATA ? mockApiService : {
     api.get('/posts', { params: { search, category } }),
   getPostById: (id: string) => api.get(`/posts/${id}`),
   searchPosts: (query: string) => api.get('/posts/search', { params: { query } }),
-  // createPost now accepts FormData for image uploads
-  createPost: (data: FormData | any) => {
-    // FormData handling is done by the request interceptor
-    return api.post('/posts', data);
-  },
-  // updatePost now accepts FormData for image uploads
-  updatePost: (id: string, data: FormData | any) => {
-    // FormData handling is done by the request interceptor
-    return api.put(`/posts/${id}`, data);
-  },
+  createPost: (data: FormData | any) => api.post('/posts', data),
+  updatePost: (id: string, data: FormData | any) => api.put(`/posts/${id}`, data),
   deletePost: (id: string) => api.delete(`/posts/${id}`),
   likePost: (id: string) => api.post(`/posts/${id}/like`),
   addReaction: (id: string, emoji: string) =>
@@ -108,16 +93,9 @@ const apiService = USE_MOCK_DATA ? mockApiService : {
   adminSearchPosts: (query: string) => api.get('/admin/search/posts', { params: { query } }),
 };
 
-// Auth Services
+// Auth Services (Firebase handles sign-in/sign-up; backend only does sync & profile)
 export const authService = {
-  register: (name: string, email: string, password: string, role: string) =>
-    apiService.register(name, email, password, role),
-  login: (email: string, password: string) =>
-    apiService.login(email, password),
-  forgotPassword: (email: string) =>
-    apiService.forgotPassword(email),
-  resetPassword: (token: string, password: string) =>
-    apiService.resetPassword(token, password),
+  syncProfile: (data?: { role?: string; name?: string }) => apiService.syncProfile(data),
   getProfile: () => apiService.getProfile(),
   updateProfile: (data: any) => apiService.updateProfile(data),
 };

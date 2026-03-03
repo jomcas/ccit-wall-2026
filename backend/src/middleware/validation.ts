@@ -18,53 +18,6 @@ const handleValidationErrors = (req: Request, res: Response, next: NextFunction)
 };
 
 /**
- * Validation rules for user registration.
- * - name: Required, trimmed, escaped to prevent XSS
- * - email: Must be a valid email format, normalized
- * - password: Minimum 8 characters, must contain uppercase, lowercase, number, and special character
- * - role: Optional, must be one of 'student', 'teacher', 'admin'
- */
-export const validateRegistration = [
-  body('name')
-    .trim()
-    .notEmpty().withMessage('Name is required')
-    .isLength({ min: 2, max: 100 }).withMessage('Name must be between 2 and 100 characters')
-    .escape(),
-  body('email')
-    .trim()
-    .notEmpty().withMessage('Email is required')
-    .isEmail().withMessage('Please provide a valid email address')
-    .normalizeEmail(),
-  body('password')
-    .notEmpty().withMessage('Password is required')
-    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters long')
-    .matches(/[a-z]/).withMessage('Password must contain at least one lowercase letter')
-    .matches(/[A-Z]/).withMessage('Password must contain at least one uppercase letter')
-    .matches(/\d/).withMessage('Password must contain at least one number')
-    .matches(/[@$!%*?&]/).withMessage('Password must contain at least one special character (@$!%*?&)'),
-  body('role')
-    .optional()
-    .isIn(['student', 'teacher', 'admin']).withMessage('Role must be one of: student, teacher, admin'),
-  handleValidationErrors
-];
-
-/**
- * Validation rules for user login.
- * - email: Must be a valid email format
- * - password: Required (not empty)
- */
-export const validateLogin = [
-  body('email')
-    .trim()
-    .notEmpty().withMessage('Email is required')
-    .isEmail().withMessage('Please provide a valid email address')
-    .normalizeEmail(),
-  body('password')
-    .notEmpty().withMessage('Password is required'),
-  handleValidationErrors
-];
-
-/**
  * Validation rules for profile update.
  * - name: Optional, trimmed, escaped
  * - bio: Optional, trimmed, max 500 characters

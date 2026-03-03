@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { authService } from '../services/api';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from '../config/firebase';
 import { FiAlertCircle, FiCheckCircle, FiMail, FiArrowLeft } from 'react-icons/fi';
 import ThemeToggle from '../components/ThemeToggle';
 import '../styles/index.css';
@@ -17,10 +18,18 @@ const ForgotPassword: React.FC = () => {
     setLoading(true);
 
     try {
-      await authService.forgotPassword(email);
+      await sendPasswordResetEmail(auth, email);
       setSuccess(true);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to send reset email');
+      const code = err?.code || '';
+      if (code === 'auth/user-not-found' || code === 'auth/invalid-email') {
+        // Don't reveal whether email exists — still show success
+        setSuccess(true);
+      } else if (code === 'auth/too-many-requests') {
+        setError('Too many requests. Please wait a moment before trying again.');
+      } else {
+        setError('Failed to send reset email. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

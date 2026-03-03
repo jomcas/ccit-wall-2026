@@ -40,7 +40,6 @@ export interface Comment {
 
 export interface AuthResponse {
   message: string;
-  token: string;
   user: User;
 }
 

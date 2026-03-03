@@ -3,13 +3,13 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface IUser extends Document {
   name: string;
   email: string;
-  password: string;
+  firebaseUid: string;
+  authProvider: 'password' | 'google.com' | 'github.com' | 'microsoft.com';
+  emailVerified: boolean;
   role: 'student' | 'teacher' | 'admin';
   bio?: string;
   profilePicture?: string;
   contactInformation?: string;
-  passwordResetToken?: string;
-  passwordResetExpires?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -18,7 +18,13 @@ const UserSchema: Schema = new Schema(
   {
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
+    firebaseUid: { type: String, required: true, unique: true },
+    authProvider: {
+      type: String,
+      enum: ['password', 'google.com', 'github.com', 'microsoft.com'],
+      default: 'password',
+    },
+    emailVerified: { type: Boolean, default: false },
     role: {
       type: String,
       enum: ['student', 'teacher', 'admin'],
@@ -27,8 +33,6 @@ const UserSchema: Schema = new Schema(
     bio: { type: String },
     profilePicture: { type: String },
     contactInformation: { type: String },
-    passwordResetToken: { type: String },
-    passwordResetExpires: { type: Date },
   },
   { timestamps: true }
 );
