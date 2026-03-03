@@ -11,7 +11,7 @@
  *   - extractStoragePath() – extract the Firebase Storage path from a download URL
  */
 
-import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 import path from 'path';
 import { adminStorage } from './firebase';
 import { logger } from './logger';
@@ -51,7 +51,7 @@ export async function uploadFile(
 
   // Build a unique destination path: posts/<uuid><ext>
   const ext = ALLOWED_TYPES[mimetype] || path.extname(originalName).toLowerCase() || '.bin';
-  const destination = `posts/${uuidv4()}${ext}`;
+  const destination = `posts/${crypto.randomUUID()}${ext}`;
 
   const file = adminStorage.file(destination);
 
