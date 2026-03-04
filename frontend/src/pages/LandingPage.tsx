@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { FiUsers, FiShare2, FiBookOpen, FiMapPin, FiLogIn, FiUserPlus } from 'react-icons/fi';
+import { FiUsers, FiShare2, FiBookOpen, FiMessageSquare, FiBell, FiImage } from 'react-icons/fi';
 import ThemeToggle from '../components/ThemeToggle';
 import '../styles/LandingPage.css';
 
@@ -12,222 +12,274 @@ const LandingPage: React.FC = () => {
         <ThemeToggle />
       </div>
 
-      {/* Hero Section */}
-      <section className="hero-section">
-        <div className="hero-content">
-          <div className="hero-logo">
-            {/* <span className="hero-logo-text">NU</span> */}
-            <img rel="icon" style={{width: "110px", height: "110px"}} src="https://upload.wikimedia.org/wikipedia/commons/9/90/NU_shield.svg" alt="NU Logo" />
+      {/* Navbar */}
+      <nav className="landing-nav">
+        <div className="landing-nav__inner">
+          <Link to="/" className="landing-nav__brand">
+            <img
+              src="https://upload.wikimedia.org/wikipedia/commons/9/90/NU_shield.svg"
+              alt="NU Logo"
+              className="landing-nav__logo"
+            />
+            <span className="landing-nav__name">CCIT Wall</span>
+          </Link>
+          <div className="landing-nav__links">
+            <a href="#features" className="landing-nav__link">Features</a>
+            <a href="#about" className="landing-nav__link">About</a>
+            <a href="#contact" className="landing-nav__link">Contact</a>
           </div>
-          <h1 className="hero-title">CCIT Wall</h1>
-          <p className="hero-subtitle">College of Computing and Information Technologies</p>
-          <p className="hero-description">
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor 
-            incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud 
-            exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+          <div className="landing-nav__actions">
+            <Link to="/login" className="landing-nav__signin">Sign in</Link>
+            <Link to="/register" className="landing-nav__cta">Get Started</Link>
+          </div>
+        </div>
+      </nav>
+
+      {/* Hero Section */}
+      <section className="landing-hero">
+        <div className="landing-hero__bg" />
+
+        {/* Floating feature cards */}
+        <div className="landing-hero__card landing-hero__card--left-top">
+          <div className="landing-hero__card-icon landing-hero__card-icon--gold">
+            <FiShare2 size={18} />
+          </div>
+          <div className="landing-hero__card-content">
+            <p className="landing-hero__card-title">Share Ideas</p>
+            <p className="landing-hero__card-text">Post announcements, share resources, and collaborate with your classmates.</p>
+          </div>
+        </div>
+
+        <div className="landing-hero__card landing-hero__card--right-top">
+          <div className="landing-hero__card-header">
+            <span className="landing-hero__card-badge">Notifications</span>
+          </div>
+          <div className="landing-hero__card-list">
+            <div className="landing-hero__card-list-item">
+              <FiBell size={14} />
+              <span>New comment on your post</span>
+            </div>
+            <div className="landing-hero__card-list-item">
+              <FiBell size={14} />
+              <span>Prof. Santos liked your project</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Main hero content */}
+        <div className="landing-hero__center">
+          <div className="landing-hero__logo-badge">
+            <img
+              src="https://upload.wikimedia.org/wikipedia/commons/9/90/NU_shield.svg"
+              alt="NU Logo"
+              className="landing-hero__logo-img"
+            />
+          </div>
+          <h1 className="landing-hero__title">
+            Connect, share, and learn
+            <span className="landing-hero__title-accent"> all in one place</span>
+          </h1>
+          <p className="landing-hero__subtitle">
+            The social platform built for NU Manila's College of Computing 
+            and Information Technologies community.
           </p>
-          <div className="hero-buttons">
-            <Link to="/login" className="hero-btn hero-btn-primary">
-              <FiLogIn size={20} /> Sign In
+          <div className="landing-hero__actions">
+            <Link to="/register" className="landing-hero__btn-primary">
+              Get Started Free
             </Link>
-            <Link to="/register" className="hero-btn hero-btn-secondary">
-              <FiUserPlus size={20} /> Create Account
+            <Link to="/login" className="landing-hero__btn-secondary">
+              Sign In
             </Link>
           </div>
         </div>
-      </section>
 
-      {/* About Section */}
-      <section className="about-section">
-        <div className="section-container">
-          <div className="section-header">
-            <h2 className="section-title">About CCIT Wall</h2>
-            <p className="section-subtitle">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis aute irure dolor 
-              in reprehenderit in voluptate velit esse cillum dolore.
-            </p>
+        {/* Bottom floating cards */}
+        <div className="landing-hero__card landing-hero__card--left-bottom">
+          <div className="landing-hero__card-header">
+            <span className="landing-hero__card-badge">Recent Posts</span>
           </div>
-          <div className="about-content">
-            <div className="about-image">
-              <img 
-                src="https://picsum.photos/800/600?random=2" 
-                alt="Students collaborating"
-              />
+          <div className="landing-hero__card-list">
+            <div className="landing-hero__card-list-item">
+              <div className="landing-hero__card-avatar">JS</div>
+              <div>
+                <p className="landing-hero__card-item-title">Web Dev Tips</p>
+                <p className="landing-hero__card-item-meta">Juan S. &middot; 2h ago</p>
+              </div>
+              <span className="landing-hero__card-stat">12 likes</span>
             </div>
-            <div className="about-text">
-              <h3>Connect with Your Community</h3>
-              <p>
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor 
-                incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud 
-                exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
-              </p>
-              <p>
-                Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
-                fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in 
-                culpa qui officia deserunt mollit anim id est laborum.
-              </p>
-              <p>
-                Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut 
-                aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit.
-              </p>
+            <div className="landing-hero__card-list-item">
+              <div className="landing-hero__card-avatar">MR</div>
+              <div>
+                <p className="landing-hero__card-item-title">Study Group for Finals</p>
+                <p className="landing-hero__card-item-meta">Maria R. &middot; 5h ago</p>
+              </div>
+              <span className="landing-hero__card-stat">8 likes</span>
             </div>
+          </div>
+        </div>
+
+        <div className="landing-hero__card landing-hero__card--right-bottom">
+          <div className="landing-hero__card-icon landing-hero__card-icon--blue">
+            <FiImage size={18} />
+          </div>
+          <div className="landing-hero__card-content">
+            <p className="landing-hero__card-title">Media Sharing</p>
+            <p className="landing-hero__card-text">Upload images, share files, and showcase your projects.</p>
           </div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section className="features-section">
-        <div className="section-container">
-          <div className="section-header">
-            <h2 className="section-title">Platform Features</h2>
-            <p className="section-subtitle">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Discover what makes 
-              CCIT Wall the perfect platform for our community.
+      <section className="landing-features" id="features">
+        <div className="landing-section__container">
+          <div className="landing-section__header">
+            <h2 className="landing-section__title">Everything your campus community needs</h2>
+            <p className="landing-section__subtitle">
+              A platform designed specifically for CCIT students and faculty to connect, 
+              collaborate, and stay informed.
             </p>
           </div>
-          <div className="features-grid">
-            <div className="feature-card">
-              <div className="feature-icon">
-                <FiUsers />
+          <div className="landing-features__grid">
+            <div className="landing-features__card">
+              <div className="landing-features__icon">
+                <FiUsers size={24} />
               </div>
-              <h3>Connect</h3>
-              <p>
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor 
-                incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.
+              <h3 className="landing-features__card-title">Community Feed</h3>
+              <p className="landing-features__card-text">
+                Stay updated with posts from classmates and professors. React, comment, and engage 
+                with your campus community in real-time.
               </p>
             </div>
-            <div className="feature-card">
-              <div className="feature-icon">
-                <FiShare2 />
+            <div className="landing-features__card">
+              <div className="landing-features__icon">
+                <FiShare2 size={24} />
               </div>
-              <h3>Share</h3>
-              <p>
-                Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore 
-                eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident.
+              <h3 className="landing-features__card-title">Share & Collaborate</h3>
+              <p className="landing-features__card-text">
+                Post announcements, share study resources, ask questions, and collaborate on 
+                projects with fellow CCIT students.
               </p>
             </div>
-            <div className="feature-card">
-              <div className="feature-icon">
-                <FiBookOpen />
+            <div className="landing-features__card">
+              <div className="landing-features__icon">
+                <FiBookOpen size={24} />
               </div>
-              <h3>Learn</h3>
-              <p>
-                Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia 
-                deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis.
+              <h3 className="landing-features__card-title">Academic Resources</h3>
+              <p className="landing-features__card-text">
+                Access shared notes, tutorials, and learning materials uploaded by the community 
+                to help you succeed in your studies.
+              </p>
+            </div>
+            <div className="landing-features__card">
+              <div className="landing-features__icon">
+                <FiMessageSquare size={24} />
+              </div>
+              <h3 className="landing-features__card-title">Discussions</h3>
+              <p className="landing-features__card-text">
+                Engage in threaded conversations, get answers to your questions, and participate 
+                in meaningful academic discussions.
+              </p>
+            </div>
+            <div className="landing-features__card">
+              <div className="landing-features__icon">
+                <FiBell size={24} />
+              </div>
+              <h3 className="landing-features__card-title">Smart Notifications</h3>
+              <p className="landing-features__card-text">
+                Never miss an important update. Get notified about comments, likes, and mentions 
+                from your CCIT community.
+              </p>
+            </div>
+            <div className="landing-features__card">
+              <div className="landing-features__icon">
+                <FiImage size={24} />
+              </div>
+              <h3 className="landing-features__card-title">Media Support</h3>
+              <p className="landing-features__card-text">
+                Share images, screenshots, and visual content. Showcase your projects and creative 
+                work with the community.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Gallery Section */}
-      <section className="gallery-section">
-        <div className="section-container">
-          <div className="section-header">
-            <h2 className="section-title">Campus Life</h2>
-            <p className="section-subtitle">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Experience the vibrant 
-              community at National University.
-            </p>
-          </div>
-          <div className="gallery-grid">
-            <div className="gallery-item">
-              <img src="https://picsum.photos/800/800?random=3" alt="Campus life 1" />
+      {/* About Section */}
+      <section className="landing-about" id="about">
+        <div className="landing-section__container">
+          <div className="landing-about__content">
+            <div className="landing-about__text">
+              <h2 className="landing-section__title">Built for CCIT, by CCIT</h2>
+              <p className="landing-about__description">
+                CCIT Wall is the dedicated social platform for the College of Computing and Information 
+                Technologies at National University Manila. Whether you're a student looking for study 
+                groups or a professor sharing important announcements, CCIT Wall brings our community together.
+              </p>
+              <div className="landing-about__stats">
+                <div className="landing-about__stat">
+                  <span className="landing-about__stat-value">CCIT</span>
+                  <span className="landing-about__stat-label">Department</span>
+                </div>
+                <div className="landing-about__stat">
+                  <span className="landing-about__stat-value">NU</span>
+                  <span className="landing-about__stat-label">Manila</span>
+                </div>
+                <div className="landing-about__stat">
+                  <span className="landing-about__stat-value">CS &amp; IT</span>
+                  <span className="landing-about__stat-label">Programs</span>
+                </div>
+              </div>
             </div>
-            <div className="gallery-item">
-              <img src="https://picsum.photos/400/400?random=4" alt="Campus life 2" />
-            </div>
-            <div className="gallery-item">
-              <img src="https://picsum.photos/400/400?random=5" alt="Campus life 3" />
-            </div>
-            <div className="gallery-item">
-              <img src="https://picsum.photos/400/400?random=6" alt="Campus life 4" />
-            </div>
-            <div className="gallery-item">
-              <img src="https://picsum.photos/400/400?random=7" alt="Campus life 5" />
+            <div className="landing-about__visual">
+              <div className="landing-about__visual-card">
+                <div className="landing-about__visual-header">
+                  <div className="landing-about__visual-dots">
+                    <span /><span /><span />
+                  </div>
+                </div>
+                <div className="landing-about__visual-body">
+                  <div className="landing-about__visual-post">
+                    <div className="landing-about__visual-avatar">P</div>
+                    <div className="landing-about__visual-post-content">
+                      <div className="landing-about__visual-line landing-about__visual-line--short" />
+                      <div className="landing-about__visual-line" />
+                      <div className="landing-about__visual-line landing-about__visual-line--medium" />
+                    </div>
+                  </div>
+                  <div className="landing-about__visual-actions">
+                    <div className="landing-about__visual-btn" />
+                    <div className="landing-about__visual-btn" />
+                    <div className="landing-about__visual-btn" />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Contact Section */}
-      <section className="contact-section">
-        <div className="section-container">
-          <div className="section-header">
-            <h2 className="section-title">Contact Information</h2>
-            <p className="section-subtitle">
-              Get in touch with National University Manila and the College of Computing 
-              and Information Technologies.
+      {/* Contact / CTA Section */}
+      <section className="landing-cta" id="contact">
+        <div className="landing-section__container">
+          <div className="landing-cta__content">
+            <h2 className="landing-cta__title">Ready to join your campus community?</h2>
+            <p className="landing-cta__text">
+              Sign up today and start connecting with fellow CCIT students and faculty.
             </p>
-          </div>
-          <div className="contact-grid">
-            <div className="contact-card">
-              <h3>
-                <span className="icon"><FiMapPin /></span>
-                National University Manila
-              </h3>
-              <div className="contact-info">
-                <div className="contact-item">
-                  <span className="label">Address:</span>
-                  <span className="value">
-                    551 M.F. Jhocson Street, Sampaloc,<br />
-                    Manila, 1008 Metro Manila, Philippines
-                  </span>
-                </div>
-                <div className="contact-item">
-                  <span className="label">Phone:</span>
-                  <span className="value">
-                    <a href="tel:+6328712000">(02) 8712-0000</a>
-                  </span>
-                </div>
-                <div className="contact-item">
-                  <span className="label">Email:</span>
-                  <span className="value">
-                    <a href="mailto:info@nu-manila.edu.ph">info@nu-manila.edu.ph</a>
-                  </span>
-                </div>
-                <div className="contact-item">
-                  <span className="label">Website:</span>
-                  <span className="value">
-                    <a href="https://www.nu-manila.edu.ph" target="_blank" rel="noopener noreferrer">
-                      www.nu-manila.edu.ph
-                    </a>
-                  </span>
-                </div>
-              </div>
+            <div className="landing-cta__actions">
+              <Link to="/register" className="landing-cta__btn">
+                Create Free Account
+              </Link>
             </div>
-            <div className="contact-card">
-              <h3>
-                <span className="icon"><FiBookOpen /></span>
-                CCIT Department
-              </h3>
-              <div className="contact-info">
-                <div className="contact-item">
-                  <span className="label">Office:</span>
-                  <span className="value">
-                    College of Computing and Information Technologies,<br />
-                    National University Manila Campus
-                  </span>
-                </div>
-                <div className="contact-item">
-                  <span className="label">Phone:</span>
-                  <span className="value">
-                    <a href="tel:+6328712000">(02) 8712-0000 loc. 1234</a>
-                  </span>
-                </div>
-                <div className="contact-item">
-                  <span className="label">Email:</span>
-                  <span className="value">
-                    <a href="mailto:ccit@nu-manila.edu.ph">ccit@nu-manila.edu.ph</a>
-                  </span>
-                </div>
-                <div className="contact-item">
-                  <span className="label">Programs:</span>
-                  <span className="value">
-                    BS Computer Science, BS Information Technology
-                  </span>
-                </div>
-              </div>
+            <div className="landing-cta__contact">
+              <p>
+                National University Manila &middot; 551 M.F. Jhocson Street, Sampaloc, Manila
+              </p>
+              <p>
+                <a href="mailto:ccit@nu-manila.edu.ph">ccit@nu-manila.edu.ph</a>
+                {' '}&middot;{' '}
+                <a href="tel:+6328712000">(02) 8712-0000</a>
+              </p>
             </div>
           </div>
         </div>
@@ -235,33 +287,23 @@ const LandingPage: React.FC = () => {
 
       {/* Footer */}
       <footer className="landing-footer">
-        <div className="footer-content">
-          <div className="footer-brand">
-            <h3>NU Manila - CCIT Wall</h3>
-            <p>
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor 
-              incididunt ut labore et dolore magna aliqua.
-            </p>
+        <div className="landing-footer__inner">
+          <div className="landing-footer__brand">
+            <img
+              src="https://upload.wikimedia.org/wikipedia/commons/9/90/NU_shield.svg"
+              alt="NU Logo"
+              className="landing-footer__logo"
+            />
+            <span className="landing-footer__name">CCIT Wall</span>
           </div>
-          <div className="footer-links">
-            <h4>Quick Links</h4>
-            <ul>
-              <li><Link to="/login">Sign In</Link></li>
-              <li><Link to="/register">Create Account</Link></li>
-              <li><Link to="/forgot-password">Forgot Password</Link></li>
-            </ul>
+          <div className="landing-footer__links">
+            <Link to="/login">Sign In</Link>
+            <Link to="/register">Create Account</Link>
+            <a href="https://www.national-u.edu.ph/" target="_blank" rel="noopener noreferrer">NU Website</a>
           </div>
-          <div className="footer-links">
-            <h4>Resources</h4>
-            <ul>
-              <li><a href="https://www.national-u.edu.ph/" target="_blank" rel="noopener noreferrer">NU Website</a></li>
-              <li><a href="#about">About CCIT</a></li>
-              <li><a href="#contact">Contact Us</a></li>
-            </ul>
-          </div>
-        </div>
-        <div className="footer-bottom">
-          <p>&copy; {new Date().getFullYear()} National University Manila - College of Computing and Information Technologies. All rights reserved.</p>
+          <p className="landing-footer__copy">
+            &copy; {new Date().getFullYear()} National University Manila &mdash; College of Computing and Information Technologies
+          </p>
         </div>
       </footer>
     </div>
