@@ -329,8 +329,6 @@
   color: var(--accent-ink);
 }
 
-.landing-hero__card-content {}
-
 .landing-hero__card-title {
   font-family: var(--font-body);
   font-size: var(--text-sm);
