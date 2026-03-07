@@ -7,6 +7,7 @@ import { notificationService } from '../services/api';
 import { useSession } from '../contexts/SessionContext';
 import { Notification } from '../types';
 import ThemeToggle from './ThemeToggle';
+import MobileUserDrawer from './MobileUserDrawer';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -261,6 +262,9 @@ const Layout: React.FC<LayoutProps> = ({ children, onLogout, showRightSidebar = 
           <div className="top-header-right">
             {/* Theme Toggle */}
             <ThemeToggle />
+
+            {/* Mobile Users Button + Drawer */}
+            <MobileUserDrawer />
 
             {/* Notification Bell with Popover */}
             <div className="header-notification-container" ref={notificationRef}>

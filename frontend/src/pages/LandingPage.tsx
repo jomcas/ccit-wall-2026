@@ -7,11 +7,6 @@ import '../styles/LandingPage.css';
 const LandingPage: React.FC = () => {
   return (
     <div className="landing-page">
-      {/* Floating Theme Toggle */}
-      <div className="landing-theme-toggle">
-        <ThemeToggle />
-      </div>
-
       {/* Navbar */}
       <nav className="landing-nav">
         <div className="landing-nav__inner">
@@ -31,6 +26,9 @@ const LandingPage: React.FC = () => {
           <div className="landing-nav__actions">
             <Link to="/login" className="landing-nav__signin">Sign in</Link>
             <Link to="/register" className="landing-nav__cta">Get Started</Link>
+            <div className="landing-nav__theme-toggle">
+              <ThemeToggle />
+            </div>
           </div>
         </div>
       </nav>

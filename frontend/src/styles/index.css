@@ -4902,6 +4902,10 @@ form + .comments-list {
     padding-top: 56px;
   }
 
+  .main-content {
+    grid-column: 1;
+  }
+
   .sidebar-left {
     position: fixed;
     left: -280px;
@@ -5855,6 +5859,10 @@ form + .comments-list {
   .app-layout {
     grid-template-columns: 1fr;
     padding-top: 64px;
+  }
+
+  .main-content {
+    grid-column: 1;
   }
 
   .sidebar-left {
@@ -6879,5 +6887,394 @@ form + .comments-list {
 
   .about-contact-label {
     min-width: auto;
+  }
+}
+
+/* ============================================
+   PROFILE PICTURE UPLOADER
+   ============================================ */
+
+.pp-uploader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.pp-uploader__avatar-wrap {
+  position: relative;
+  cursor: pointer;
+}
+
+.pp-uploader__avatar-wrap:hover .pp-uploader__camera-btn {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.pp-uploader__camera-btn {
+  position: absolute;
+  bottom: -6px;
+  right: -6px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent-gold);
+  color: var(--ink-on-accent);
+  border: 3px solid var(--surface-1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.85;
+  transform: scale(0.95);
+  transition: opacity var(--speed-fast) var(--ease-out),
+              transform var(--speed-fast) var(--ease-out),
+              background var(--speed-fast) var(--ease-out);
+  padding: 0;
+  pointer-events: none;
+}
+
+.pp-uploader__camera-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Spinner overlay while uploading */
+.pp-uploader__spinner-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pp-uploader__spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: pp-spin 0.7s linear infinite;
+}
+
+@keyframes pp-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Action buttons (Upload / Cancel) */
+.pp-uploader__actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.pp-uploader__upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: var(--accent-gold);
+  color: var(--ink-on-accent);
+  border: none;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity var(--speed-fast) var(--ease-out);
+}
+
+.pp-uploader__upload-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pp-uploader__cancel-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: var(--surface-2);
+  color: var(--ink-secondary);
+  border: 1px solid var(--border);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--speed-fast) var(--ease-out);
+}
+
+.pp-uploader__cancel-btn:hover {
+  background: var(--surface-3);
+}
+
+/* Error message */
+.pp-uploader__error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--danger);
+  font-size: var(--text-xs);
+  text-align: center;
+  max-width: 260px;
+}
+
+/* Hint text */
+.pp-uploader__hint {
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  text-align: center;
+  margin: 0;
+}
+
+/* ============================================
+   MOBILE USER DRAWER
+   Button hidden on desktop, shown on mobile
+   ============================================ */
+
+/* Header Users Button — hidden on desktop */
+.header-users-btn {
+  display: none;
+}
+
+/* Users Drawer — hidden on desktop */
+.users-drawer-backdrop {
+  display: none;
+}
+
+.users-drawer {
+  display: none;
+}
+
+/* ============================================
+   MOBILE USER DRAWER — 768px and below
+   ============================================ */
+@media (max-width: 768px) {
+  /* Users Button in Header */
+  .header-users-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: 2px solid var(--border);
+    background: var(--surface-2);
+    border-radius: var(--radius-sm);
+    color: var(--ink-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+
+  .header-users-btn:hover {
+    background: var(--surface-3);
+    color: var(--accent-ink);
+    border-color: var(--accent-ink-muted);
+  }
+
+  /* Backdrop */
+  .users-drawer-backdrop {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: var(--z-overlay);
+    animation: fadeIn 0.2s var(--ease-out);
+  }
+
+  /* Bottom Drawer */
+  .users-drawer {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-height: 80vh;
+    background: var(--surface-1);
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+    z-index: calc(var(--z-overlay) + 1);
+    animation: slideUpDrawer 0.3s var(--ease-out);
+  }
+
+  /* Drag handle */
+  .users-drawer::before {
+    content: '';
+    position: absolute;
+    top: var(--space-2);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 4px;
+    background: var(--ink-ghost);
+    border-radius: 2px;
+    z-index: var(--z-base);
+  }
+
+  /* Drawer Header */
+  .users-drawer-header {
+    padding: var(--space-6) var(--space-4) var(--space-3);
+    border-bottom: 2px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .users-drawer-header h3 {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    font-weight: 700;
+    margin: 0;
+    color: var(--ink);
+  }
+
+  .users-drawer-count {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--ink-muted);
+  }
+
+  /* Drawer Search */
+  .users-drawer-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--border-subtle);
+    flex-shrink: 0;
+  }
+
+  .users-drawer-search-icon {
+    position: absolute;
+    left: calc(var(--space-4) + var(--space-3));
+    color: var(--ink-muted);
+    pointer-events: none;
+  }
+
+  .users-drawer-search-input {
+    width: 100%;
+    padding: var(--space-2) var(--space-4) var(--space-2) calc(var(--space-3) + 24px);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--ink);
+    background: var(--surface-inset);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    outline: none;
+    transition: border-color var(--transition-fast);
+  }
+
+  .users-drawer-search-input::placeholder {
+    color: var(--ink-muted);
+  }
+
+  .users-drawer-search-input:focus {
+    border-color: var(--accent-ink);
+  }
+
+  .users-drawer-search-clear {
+    position: absolute;
+    right: calc(var(--space-4) + var(--space-2));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: var(--ink-muted);
+    cursor: pointer;
+    padding: var(--space-1);
+    border-radius: var(--radius-xs);
+  }
+
+  .users-drawer-search-clear:hover {
+    color: var(--ink);
+    background: var(--surface-2);
+  }
+
+  /* Drawer Content */
+  .users-drawer-content {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    max-height: calc(80vh - 160px);
+    padding: var(--space-2) 0;
+  }
+
+  .users-drawer-content .user-row {
+    padding: var(--space-3) var(--space-4);
+    border-radius: 0;
+  }
+
+  .users-drawer-content .user-row:hover {
+    background: var(--surface-2);
+  }
+
+  /* Loading & Empty States */
+  .users-drawer-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-8);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--ink-muted);
+  }
+
+  .users-drawer-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-8);
+    color: var(--ink-muted);
+    text-align: center;
+  }
+
+  .users-drawer-empty p {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+  }
+}
+
+/* ============================================
+   MOBILE USER DRAWER — 480px and below
+   ============================================ */
+@media (max-width: 480px) {
+  .header-users-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .users-drawer {
+    max-height: 85vh;
+  }
+
+  .users-drawer-content {
+    max-height: calc(85vh - 160px);
+  }
+}
+
+/* ============================================
+   MOBILE USER DRAWER — 360px and below
+   ============================================ */
+@media (max-width: 360px) {
+  .users-drawer-header h3 {
+    font-size: var(--text-md);
+  }
+
+  .users-drawer-search-input {
+    font-size: var(--text-xs);
   }
 }

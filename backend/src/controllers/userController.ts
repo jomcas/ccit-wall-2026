@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import User from '../models/User';
 import { adminAuth } from '../utils/firebase';
 import { logger, getRequestContext } from '../utils/logger';
+import { uploadProfilePicture, extractStoragePath, deleteFile } from '../utils/storage';
 
 /**
  * Sync / upsert user profile after Firebase authentication.
@@ -173,6 +174,80 @@ export const deleteUser = async (req: Request, res: Response) => {
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: 'An error occurred while deleting user' });
+  }
+};
+
+/**
+ * Upload and update the authenticated user's profile picture.
+ *
+ * Expects a single file via multipart/form-data with the field name "profilePicture".
+ * Uploads to Firebase Storage under `profile-pictures/<userId>/`, saves the public
+ * URL to the User document, and deletes the previous picture from storage if it was
+ * also hosted in Firebase Storage.
+ */
+export const updateProfilePicture = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded. Please select an image.' });
+    }
+
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Upload new picture to Firebase Storage
+    const newPictureUrl = await uploadProfilePicture(
+      req.file.buffer,
+      req.file.mimetype,
+      req.file.originalname,
+      req.user.userId
+    );
+
+    // Delete old profile picture from Firebase Storage if it exists
+    if (user.profilePicture) {
+      const oldStoragePath = extractStoragePath(user.profilePicture);
+      if (oldStoragePath) {
+        try {
+          await deleteFile(oldStoragePath);
+        } catch (err) {
+          // Log but don't fail — old file cleanup is best-effort
+          logger.warn('Failed to delete old profile picture from storage', { error: err });
+        }
+      }
+    }
+
+    // Update user document with new URL
+    user.profilePicture = newPictureUrl;
+    await user.save();
+
+    logger.info('Profile picture updated', { userId: req.user.userId });
+
+    res.json({
+      message: 'Profile picture updated successfully',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        profilePicture: user.profilePicture,
+        emailVerified: user.emailVerified,
+        authProvider: user.authProvider,
+        bio: user.bio,
+        contactInformation: user.contactInformation,
+      },
+    });
+  } catch (error: any) {
+    // Handle multer/storage validation errors with friendly messages
+    if (error.message?.includes('Unsupported file type') || error.message?.includes('File too large')) {
+      return res.status(400).json({ message: error.message });
+    }
+    logger.error('Profile picture update failed', error instanceof Error ? error : new Error('Unknown error'));
+    res.status(500).json({ message: 'An error occurred while updating profile picture' });
   }
 };
 

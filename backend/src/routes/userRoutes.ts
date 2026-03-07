@@ -3,12 +3,14 @@ import {
   syncProfile,
   getProfile,
   updateProfile,
+  updateProfilePicture,
   getAllUsers,
   getUserById,
   deleteUser,
   searchUsers,
 } from '../controllers/userController';
 import { authMiddleware, adminMiddleware } from '../middleware/auth';
+import { profilePictureUpload } from '../middleware/upload';
 import {
   validateProfileUpdate,
   validateObjectId,
@@ -25,6 +27,7 @@ router.post('/sync', syncProfile);
 // Protected routes with input validation
 router.get('/profile', authMiddleware, getProfile);
 router.put('/profile', authMiddleware, validateProfileUpdate, updateProfile);
+router.patch('/profile/picture', authMiddleware, profilePictureUpload.single('profilePicture'), updateProfilePicture);
 router.get('/users', authMiddleware, getAllUsers);
 router.get('/users/search', authMiddleware, validateSearchQuery, searchUsers);
 router.get('/users/:id', authMiddleware, validateObjectId, getUserById);

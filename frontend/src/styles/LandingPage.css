@@ -11,15 +11,8 @@
   overflow-x: hidden;
 }
 
-/* ── Floating Theme Toggle ────────────────── */
-.landing-theme-toggle {
-  position: fixed;
-  top: var(--space-5);
-  right: var(--space-5);
-  z-index: var(--z-toast);
-}
-
-.landing-theme-toggle .theme-toggle-btn {
+/* ── Theme Toggle (Navbar) ────────────────── */
+.landing-nav__theme-toggle .theme-toggle-btn {
   background: var(--surface-raised);
   box-shadow: var(--shadow-md);
   backdrop-filter: blur(10px);
@@ -27,7 +20,7 @@
   border-radius: var(--radius-sm);
 }
 
-.landing-theme-toggle .theme-toggle-btn:hover {
+.landing-nav__theme-toggle .theme-toggle-btn:hover {
   background: var(--surface-2);
   transform: scale(1.1);
   border-color: var(--accent-gold);
@@ -967,8 +960,8 @@
     gap: var(--space-5);
   }
 
-  .landing-theme-toggle {
-    top: var(--space-3);
-    right: var(--space-3);
+  .landing-nav__theme-toggle .theme-toggle-btn {
+    width: 40px;
+    height: 40px;
   }
 }

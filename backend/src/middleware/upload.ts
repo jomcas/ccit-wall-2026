@@ -30,13 +30,26 @@ const fileFilter = (
   }
 };
 
-// Create multer instance with memory storage
+// Create multer instance with memory storage (for post images — up to 4 files)
 const upload = multer({
   storage: multer.memoryStorage(),
   fileFilter,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB max file size
     files: 4, // Maximum 4 files per upload
+  },
+});
+
+/**
+ * Multer instance for profile picture uploads.
+ * Single file, 5 MB limit, images only.
+ */
+export const profilePictureUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB max
+    files: 1,
   },
 });
 
