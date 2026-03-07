@@ -338,6 +338,29 @@
   background: var(--surface-1);
 }
 
+/* ── Mobile User Drawer ────────────────────── */
+[data-theme="dark"] .users-drawer {
+  background: var(--surface-1);
+}
+
+[data-theme="dark"] .users-drawer::before {
+  background: var(--border-strong);
+}
+
+[data-theme="dark"] .users-drawer-header {
+  border-color: var(--border);
+}
+
+[data-theme="dark"] .users-drawer-search {
+  border-color: var(--border);
+}
+
+[data-theme="dark"] .users-drawer-search-input {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--ink);
+}
+
 /* ── Theme Preview ─────────────────────────── */
 [data-theme="dark"] .theme-preview-banner-content {
   background: var(--surface-inset);
