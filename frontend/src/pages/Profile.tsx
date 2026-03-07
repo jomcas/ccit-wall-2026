@@ -98,10 +98,26 @@ const Profile: React.FC = () => {
     }));
   };
 
+  const hasFormChanges = (): boolean => {
+    if (!user) return false;
+    return (
+      formData.name !== (user.name || "") ||
+      formData.email !== (user.email || "") ||
+      formData.bio !== (user.bio || "") ||
+      formData.profilePicture !== (user.profilePicture || "") ||
+      formData.contactInformation !== (user.contactInformation || "")
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setSuccess("");
+
+    if (!hasFormChanges()) {
+      setEditing(false);
+      return;
+    }
 
     try {
       const response = await authService.updateProfile(formData);
@@ -192,17 +208,19 @@ const Profile: React.FC = () => {
         /* View Mode */
         <div className="profile-card">
           <div className="profile-view">
-            {/* Avatar Section with Upload */}
+            {/* Avatar Section — view only, no upload controls */}
             <div className="profile-avatar-section">
-              <ProfilePictureUploader
-                currentPicture={user.profilePicture}
-                userName={user.name}
-                onUploadSuccess={(newUrl, updatedUser) => {
-                  setUser({ ...user, profilePicture: newUrl });
-                  updateUserData(updatedUser);
-                  setSuccess("Profile picture updated successfully!");
-                }}
-              />
+              {user.profilePicture ? (
+                <img
+                  src={user.profilePicture}
+                  alt={user.name}
+                  className="profile-avatar-large"
+                />
+              ) : (
+                <div className="profile-avatar-placeholder-large">
+                  {user.name ? user.name.charAt(0).toUpperCase() : '?'}
+                </div>
+              )}
               <h2 className="profile-display-name">{user.name}</h2>
               <span className="profile-role-badge">
                 {user.role.charAt(0).toUpperCase() + user.role.slice(1)}

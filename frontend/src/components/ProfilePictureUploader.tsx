@@ -44,14 +44,12 @@ const ProfilePictureUploader: React.FC<ProfilePictureUploaderProps> = ({
       const validationError = validateFile(file);
       if (validationError) {
         setError(validationError);
-        // Reset file input so the same file can be re-selected after fixing
         if (fileInputRef.current) fileInputRef.current.value = '';
         return;
       }
 
       setSelectedFile(file);
 
-      // Generate preview
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreview(reader.result as string);
@@ -78,7 +76,6 @@ const ProfilePictureUploader: React.FC<ProfilePictureUploaderProps> = ({
       const response = await authService.uploadProfilePicture(selectedFile);
       const updatedUser = response.data.user;
 
-      // Reset state
       setPreview(null);
       setSelectedFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -108,7 +105,8 @@ const ProfilePictureUploader: React.FC<ProfilePictureUploaderProps> = ({
 
   return (
     <div className="pp-uploader">
-      <div className="pp-uploader__avatar-wrapper">
+      {/* Avatar with camera overlay */}
+      <div className="pp-uploader__avatar-wrap" onClick={!uploading ? triggerFileInput : undefined}>
         {displayImage ? (
           <img
             src={displayImage}
@@ -119,16 +117,12 @@ const ProfilePictureUploader: React.FC<ProfilePictureUploaderProps> = ({
           <div className="profile-avatar-placeholder-large">{initial}</div>
         )}
 
-        {/* Camera overlay button */}
-        <button
-          type="button"
-          className="pp-uploader__camera-btn"
-          onClick={triggerFileInput}
-          disabled={uploading}
-          aria-label="Change profile picture"
-        >
-          <FiCamera size={20} />
-        </button>
+        {/* Camera badge */}
+        {!uploading && (
+          <span className="pp-uploader__camera-btn" aria-label="Change profile picture">
+            <FiCamera />
+          </span>
+        )}
 
         {/* Uploading spinner overlay */}
         {uploading && (
@@ -144,7 +138,7 @@ const ProfilePictureUploader: React.FC<ProfilePictureUploaderProps> = ({
         type="file"
         accept="image/jpeg,image/png,image/gif,image/webp"
         onChange={handleFileSelect}
-        className="pp-uploader__file-input"
+        hidden
         aria-label="Select profile picture"
       />
 
@@ -178,9 +172,7 @@ const ProfilePictureUploader: React.FC<ProfilePictureUploaderProps> = ({
         </div>
       )}
 
-      <p className="pp-uploader__hint">
-        JPEG, PNG, GIF, or WebP. Max 5 MB.
-      </p>
+      <p className="pp-uploader__hint">JPEG, PNG, GIF, or WebP. Max 5 MB.</p>
     </div>
   );
 };

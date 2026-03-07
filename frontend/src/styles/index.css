@@ -6906,29 +6906,32 @@ form + .comments-list {
   cursor: pointer;
 }
 
+.pp-uploader__avatar-wrap:hover .pp-uploader__camera-btn {
+  opacity: 1;
+  transform: scale(1);
+}
+
 .pp-uploader__camera-btn {
   position: absolute;
-  bottom: 2px;
-  right: 2px;
-  width: 32px;
-  height: 32px;
+  bottom: -6px;
+  right: -6px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: var(--surface-raised);
-  border: 2px solid var(--border);
+  background: var(--accent-gold);
+  color: var(--ink-on-accent);
+  border: 3px solid var(--surface-1);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background var(--speed-fast) var(--ease-out),
-              transform var(--speed-fast) var(--ease-out);
-  color: var(--ink-secondary);
+  opacity: 0.85;
+  transform: scale(0.95);
+  transition: opacity var(--speed-fast) var(--ease-out),
+              transform var(--speed-fast) var(--ease-out),
+              background var(--speed-fast) var(--ease-out);
   padding: 0;
-}
-
-.pp-uploader__camera-btn:hover {
-  background: var(--accent-gold);
-  color: var(--ink-on-accent);
-  transform: scale(1.1);
+  pointer-events: none;
 }
 
 .pp-uploader__camera-btn svg {
@@ -6940,7 +6943,7 @@ form + .comments-list {
 .pp-uploader__spinner-overlay {
   position: absolute;
   inset: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-sm);
   background: rgba(0, 0, 0, 0.45);
   display: flex;
   align-items: center;
@@ -6948,8 +6951,8 @@ form + .comments-list {
 }
 
 .pp-uploader__spinner {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border: 3px solid rgba(255, 255, 255, 0.3);
   border-top-color: #fff;
   border-radius: 50%;
@@ -6967,6 +6970,9 @@ form + .comments-list {
 }
 
 .pp-uploader__upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
   background: var(--accent-gold);
   color: var(--ink-on-accent);
   border: none;
@@ -6987,6 +6993,9 @@ form + .comments-list {
 }
 
 .pp-uploader__cancel-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
   background: var(--surface-2);
   color: var(--ink-secondary);
   border: 1px solid var(--border);
@@ -7005,10 +7014,13 @@ form + .comments-list {
 
 /* Error message */
 .pp-uploader__error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
   color: var(--danger);
   font-size: var(--text-xs);
   text-align: center;
-  max-width: 220px;
+  max-width: 260px;
 }
 
 /* Hint text */
@@ -7016,6 +7028,7 @@ form + .comments-list {
   font-size: var(--text-xs);
   color: var(--ink-muted);
   text-align: center;
+  margin: 0;
 }
 
 /* ============================================
