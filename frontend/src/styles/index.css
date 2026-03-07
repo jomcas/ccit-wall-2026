@@ -6891,6 +6891,134 @@ form + .comments-list {
 }
 
 /* ============================================
+   PROFILE PICTURE UPLOADER
+   ============================================ */
+
+.pp-uploader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.pp-uploader__avatar-wrap {
+  position: relative;
+  cursor: pointer;
+}
+
+.pp-uploader__camera-btn {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface-raised);
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background var(--speed-fast) var(--ease-out),
+              transform var(--speed-fast) var(--ease-out);
+  color: var(--ink-secondary);
+  padding: 0;
+}
+
+.pp-uploader__camera-btn:hover {
+  background: var(--accent-gold);
+  color: var(--ink-on-accent);
+  transform: scale(1.1);
+}
+
+.pp-uploader__camera-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Spinner overlay while uploading */
+.pp-uploader__spinner-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pp-uploader__spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: pp-spin 0.7s linear infinite;
+}
+
+@keyframes pp-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Action buttons (Upload / Cancel) */
+.pp-uploader__actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.pp-uploader__upload-btn {
+  background: var(--accent-gold);
+  color: var(--ink-on-accent);
+  border: none;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity var(--speed-fast) var(--ease-out);
+}
+
+.pp-uploader__upload-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pp-uploader__cancel-btn {
+  background: var(--surface-2);
+  color: var(--ink-secondary);
+  border: 1px solid var(--border);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--speed-fast) var(--ease-out);
+}
+
+.pp-uploader__cancel-btn:hover {
+  background: var(--surface-3);
+}
+
+/* Error message */
+.pp-uploader__error {
+  color: var(--danger);
+  font-size: var(--text-xs);
+  text-align: center;
+  max-width: 220px;
+}
+
+/* Hint text */
+.pp-uploader__hint {
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  text-align: center;
+}
+
+/* ============================================
    MOBILE USER DRAWER
    Button hidden on desktop, shown on mobile
    ============================================ */

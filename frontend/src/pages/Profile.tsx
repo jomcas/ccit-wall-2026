@@ -2,8 +2,9 @@ import React, { useEffect, useState } from "react";
 import { authService, postService } from "../services/api";
 import { User, Post as PostType } from "../types";
 import PostComponent from "../components/Post";
+import ProfilePictureUploader from "../components/ProfilePictureUploader";
 import { useSession } from "../contexts/SessionContext";
-import { FiAlertCircle, FiCheckCircle, FiInbox, FiEdit2, FiCamera, FiUser, FiMail, FiFileText, FiPhone } from 'react-icons/fi';
+import { FiAlertCircle, FiCheckCircle, FiInbox, FiEdit2, FiUser, FiMail, FiFileText, FiPhone } from 'react-icons/fi';
 import "../styles/index.css";
 
 const Profile: React.FC = () => {
@@ -191,19 +192,17 @@ const Profile: React.FC = () => {
         /* View Mode */
         <div className="profile-card">
           <div className="profile-view">
-            {/* Avatar Section */}
+            {/* Avatar Section with Upload */}
             <div className="profile-avatar-section">
-              {user.profilePicture ? (
-                <img
-                  src={user.profilePicture}
-                  alt={user.name}
-                  className="profile-avatar-large"
-                />
-              ) : (
-                <div className="profile-avatar-placeholder-large">
-                  {user.name.charAt(0).toUpperCase()}
-                </div>
-              )}
+              <ProfilePictureUploader
+                currentPicture={user.profilePicture}
+                userName={user.name}
+                onUploadSuccess={(newUrl, updatedUser) => {
+                  setUser({ ...user, profilePicture: newUrl });
+                  updateUserData(updatedUser);
+                  setSuccess("Profile picture updated successfully!");
+                }}
+              />
               <h2 className="profile-display-name">{user.name}</h2>
               <span className="profile-role-badge">
                 {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
@@ -261,37 +260,18 @@ const Profile: React.FC = () => {
         /* Edit Mode */
         <form onSubmit={handleSubmit} className="profile-card">
           <div className="profile-edit-form">
-            {/* Avatar Section with URL input */}
+            {/* Avatar Section with Upload */}
             <div className="profile-edit-avatar-section">
-              <div className="profile-edit-avatar-wrapper">
-                {formData.profilePicture ? (
-                  <img
-                    src={formData.profilePicture}
-                    alt={formData.name}
-                    className="profile-avatar-large"
-                  />
-                ) : (
-                  <div className="profile-avatar-placeholder-large">
-                    {formData.name
-                      ? formData.name.charAt(0).toUpperCase()
-                      : user.name.charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <div className="profile-avatar-overlay">
-                  <FiCamera size={24} />
-                </div>
-              </div>
-              <div className="profile-edit-avatar-input">
-                <label className="profile-form-label">Profile Picture URL</label>
-                <input
-                  type="url"
-                  name="profilePicture"
-                  value={formData.profilePicture}
-                  onChange={handleChange}
-                  placeholder="https://example.com/your-photo.jpg"
-                  className="profile-form-input"
-                />
-              </div>
+              <ProfilePictureUploader
+                currentPicture={formData.profilePicture || user.profilePicture}
+                userName={formData.name || user.name}
+                onUploadSuccess={(newUrl, updatedUser) => {
+                  setFormData({ ...formData, profilePicture: newUrl });
+                  setUser({ ...user, profilePicture: newUrl });
+                  updateUserData(updatedUser);
+                  setSuccess("Profile picture updated successfully!");
+                }}
+              />
             </div>
 
             {/* Form Fields */}

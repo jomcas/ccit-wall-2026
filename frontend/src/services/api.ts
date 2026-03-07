@@ -98,6 +98,11 @@ export const authService = {
   syncProfile: (data?: { role?: string; name?: string }) => apiService.syncProfile(data),
   getProfile: () => apiService.getProfile(),
   updateProfile: (data: any) => apiService.updateProfile(data),
+  uploadProfilePicture: (file: File) => {
+    const formData = new FormData();
+    formData.append('profilePicture', file);
+    return api.patch('/auth/profile/picture', formData);
+  },
 };
 
 // Post Services

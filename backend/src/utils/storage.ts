@@ -75,6 +75,56 @@ export async function uploadFile(
 }
 
 /**
+ * Upload a profile picture to Firebase Storage.
+ *
+ * Stores files under `profile-pictures/<userId>/<uuid><ext>` so that each
+ * user's images are namespaced and old ones can optionally be cleaned up.
+ *
+ * @param buffer       - The raw file buffer (from multer memory storage)
+ * @param mimetype     - The file's MIME type (e.g. "image/jpeg")
+ * @param originalName - Original filename (used only for the extension fallback)
+ * @param userId       - The MongoDB user ID (used for namespacing)
+ * @returns The public download URL of the uploaded file
+ */
+export async function uploadProfilePicture(
+  buffer: Buffer,
+  mimetype: string,
+  originalName: string,
+  userId: string
+): Promise<string> {
+  // Validate MIME type
+  if (!ALLOWED_TYPES[mimetype]) {
+    throw new Error(`Unsupported file type: ${mimetype}. Allowed: ${Object.keys(ALLOWED_TYPES).join(', ')}`);
+  }
+
+  // Validate size
+  if (buffer.length > MAX_FILE_SIZE) {
+    throw new Error(`File too large (${(buffer.length / 1024 / 1024).toFixed(1)} MB). Max: 5 MB.`);
+  }
+
+  const ext = ALLOWED_TYPES[mimetype] || path.extname(originalName).toLowerCase() || '.bin';
+  const destination = `profile-pictures/${userId}/${crypto.randomUUID()}${ext}`;
+
+  const file = adminStorage.file(destination);
+
+  await file.save(buffer, {
+    contentType: mimetype,
+    public: true,
+    metadata: {
+      metadata: {
+        originalName,
+        uploadTime: new Date().toISOString(),
+      },
+    },
+  });
+
+  const publicUrl = `https://storage.googleapis.com/${adminStorage.name}/${destination}`;
+
+  logger.info(`Profile picture uploaded to Firebase Storage: ${destination}`);
+  return publicUrl;
+}
+
+/**
  * Extract the Firebase Storage object path from a public URL.
  * Handles URLs like:
  *   https://storage.googleapis.com/<bucket>/posts/abc.jpg

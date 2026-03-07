@@ -361,6 +361,20 @@
   color: var(--ink);
 }
 
+/* ── Profile Picture Uploader ──────────────── */
+[data-theme="dark"] .pp-uploader__camera-btn {
+  border-color: var(--surface-1);
+}
+
+[data-theme="dark"] .pp-uploader__cancel-btn {
+  background: var(--surface-3);
+  color: var(--ink-secondary);
+}
+
+[data-theme="dark"] .pp-uploader__cancel-btn:hover {
+  background: var(--surface-raised);
+}
+
 /* ── Theme Preview ─────────────────────────── */
 [data-theme="dark"] .theme-preview-banner-content {
   background: var(--surface-inset);
