@@ -4902,6 +4902,10 @@ form + .comments-list {
     padding-top: 56px;
   }
 
+  .main-content {
+    grid-column: 1;
+  }
+
   .sidebar-left {
     position: fixed;
     left: -280px;
@@ -5855,6 +5859,10 @@ form + .comments-list {
   .app-layout {
     grid-template-columns: 1fr;
     padding-top: 64px;
+  }
+
+  .main-content {
+    grid-column: 1;
   }
 
   .sidebar-left {
