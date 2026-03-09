@@ -848,6 +848,18 @@
   background: #141720;
 }
 
+[data-theme="dark"] .landing-cta__title {
+  color: #f5f7ff;
+}
+
+[data-theme="dark"] .landing-cta__text {
+  color: rgba(245, 247, 255, 0.84);
+}
+
+[data-theme="dark"] .landing-cta__contact {
+  color: rgba(245, 247, 255, 0.72);
+}
+
 [data-theme="dark"] .landing-footer {
   background: var(--surface-1);
   border-top-color: var(--border);
