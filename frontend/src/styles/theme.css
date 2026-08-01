@@ -12,6 +12,17 @@
   color: var(--ink);
 }
 
+/* ── Skeleton shimmer (dark) ───────────────── */
+[data-theme="dark"] .skeleton-bone {
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    var(--surface-3) 50%,
+    var(--surface-2) 75%
+  );
+  background-size: 800px 100%;
+}
+
 /* ── Layout Background ─────────────────────── */
 [data-theme="dark"] .app-layout::before {
   opacity: 0.3;
@@ -564,10 +575,10 @@
   font-family: var(--font-display);
   font-size: var(--text-4xl);
   font-weight: 800;
-  color: var(--ink-inverse);
+  color: #f7f2e8;
   letter-spacing: var(--tracking-tight);
   margin-bottom: var(--space-4);
-  text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  text-shadow: 0 2px 10px rgba(0,0,0,0.35);
 }
 
 .auth-layout__brand-tagline {
@@ -779,6 +790,34 @@
   text-decoration: underline;
 }
 
+.auth-layout .form-group label {
+  color: var(--ink);
+}
+
+.auth-layout .form-group input {
+  color: var(--ink);
+  caret-color: var(--ink);
+  -webkit-text-fill-color: var(--ink);
+}
+
+.auth-layout .form-group input::placeholder {
+  color: var(--ink-muted);
+  -webkit-text-fill-color: var(--ink-muted);
+}
+
+.auth-layout .input-with-icon .input-icon,
+.auth-layout .password-toggle-btn {
+  color: var(--ink-secondary);
+}
+
+.auth-layout .form-group input:-webkit-autofill,
+.auth-layout .form-group input:-webkit-autofill:hover,
+.auth-layout .form-group input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--ink);
+  -webkit-box-shadow: 0 0 0 1000px var(--surface-inset) inset;
+  transition: background-color 600000s 0s, color 600000s 0s;
+}
+
 /* Role selector */
 .auth-layout .auth-form__role-selector {
   display: flex;
@@ -864,17 +903,59 @@
   color: var(--ink);
 }
 
+[data-theme="dark"] .auth-layout__subtitle,
+[data-theme="dark"] .auth-layout .auth-form__divider-text,
+[data-theme="dark"] .auth-layout .auth-form__footer {
+  color: var(--ink-secondary);
+}
+
+[data-theme="dark"] .auth-layout .auth-form__forgot-link,
+[data-theme="dark"] .auth-layout .auth-form__link {
+  color: var(--accent-gold-vivid);
+}
+
+[data-theme="dark"] .auth-layout .auth-form__forgot-link:hover,
+[data-theme="dark"] .auth-layout .auth-form__link:hover {
+  color: var(--accent-gold-hover);
+}
+
+[data-theme="dark"] .auth-layout .input-with-icon .input-icon,
+[data-theme="dark"] .auth-layout .password-toggle-btn {
+  color: var(--ink-muted);
+}
+
+[data-theme="dark"] .auth-layout .password-toggle-btn:hover {
+  color: var(--ink);
+}
+
+[data-theme="dark"] .auth-layout .form-group label {
+  color: var(--ink);
+}
+
+[data-theme="dark"] .auth-layout .form-group input {
+  background: var(--surface-inset);
+  border-color: var(--border);
+  color: var(--ink);
+  caret-color: var(--ink);
+  -webkit-text-fill-color: var(--ink);
+}
+
+[data-theme="dark"] .auth-layout .form-group input::placeholder {
+  color: var(--ink-secondary);
+  -webkit-text-fill-color: var(--ink-secondary);
+}
+
 [data-theme="dark"] .auth-layout .auth-form__google-btn:hover:not(:disabled) {
   background: var(--surface-3);
   border-color: var(--border-strong);
 }
 
 [data-theme="dark"] .auth-layout .auth-form__link {
-  color: var(--accent-ink);
+  color: var(--accent-gold-vivid);
 }
 
 [data-theme="dark"] .auth-layout .auth-form__forgot-link {
-  color: var(--accent-ink);
+  color: var(--accent-gold-vivid);
 }
 
 [data-theme="dark"] .auth-layout .auth-form__role-option--active {

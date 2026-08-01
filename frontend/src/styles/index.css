@@ -5101,6 +5101,142 @@ form + .comments-list {
   font-size: var(--text-sm);
 }
 
+/* ============================================================================
+   SKELETON LOADERS
+   ============================================================================ */
+
+@keyframes skeleton-shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.skeleton-bone {
+  border-radius: var(--radius-xs);
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    var(--surface-3) 50%,
+    var(--surface-2) 75%
+  );
+  background-size: 800px 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+  display: block;
+}
+
+/* ── Post skeleton ─────────────────────────── */
+.skeleton-post {
+  pointer-events: none;
+  user-select: none;
+}
+
+.skeleton-post-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.skeleton-post-meta {
+  flex: 1;
+}
+
+.skeleton-post-actions {
+  display: flex;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  margin-top: var(--space-4);
+  border-top: 2px solid var(--border-subtle);
+}
+
+/* ── Profile card skeleton ─────────────────── */
+.skeleton-profile-card {
+  pointer-events: none;
+  user-select: none;
+}
+
+.skeleton-profile-body {
+  display: flex;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.skeleton-profile-avatar-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-bottom: var(--space-6);
+  min-width: 160px;
+}
+
+.skeleton-profile-info-col {
+  flex: 1 1 260px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.skeleton-info-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 2px solid var(--border-subtle);
+}
+
+.skeleton-info-text {
+  flex: 1;
+}
+
+/* ── Notification skeleton ─────────────────── */
+.skeleton-notification {
+  pointer-events: none;
+  user-select: none;
+  cursor: default !important;
+}
+
+.skeleton-notif-body {
+  flex: 1;
+}
+
+/* ── User row skeleton ─────────────────────── */
+.skeleton-user-row {
+  pointer-events: none;
+  user-select: none;
+}
+
+.skeleton-user-row-text {
+  flex: 1;
+}
+
+/* ── Shared avatar sizes ───────────────────── */
+.skeleton-avatar-xs {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.skeleton-avatar-sm {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.skeleton-avatar-lg {
+  width: 140px;
+  height: 140px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.skeleton-notif-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
 /* Feed Empty State */
 .feed-empty-state {
   display: flex;

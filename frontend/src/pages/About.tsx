@@ -1,5 +1,5 @@
 import React from 'react';
-import { FiUsers, FiShare2, FiBookOpen, FiMapPin } from 'react-icons/fi';
+import { FiUsers, FiShare2, FiZap, FiBookOpen, FiMapPin } from 'react-icons/fi';
 
 const About: React.FC = () => {
   return (
@@ -18,9 +18,10 @@ const About: React.FC = () => {
             <h1 className="page-title">About CCIT Wall</h1>
             <p className="page-subtitle">College of Computing and Information Technologies</p>
             <p className="about-description">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor 
-              incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud 
-              exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+              CCIT Wall is the official bulletin board platform for the College of Computing
+              and Information Technologies at National University Manila. It's a dedicated
+              space where students, faculty, and staff can share announcements, collaborate on
+              projects, and stay connected with everything happening in the CCIT community.
             </p>
           </div>
         </div>
@@ -38,18 +39,19 @@ const About: React.FC = () => {
           </div>
           <div className="about-community-text">
             <p>
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor 
-              incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud 
-              exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+              The College of Computing and Information Technologies is home to a vibrant
+              community of future tech professionals. CCIT Wall brings that community online —
+              giving every member a voice and a place to share what matters to them.
             </p>
             <p>
-              Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
-              fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in 
-              culpa qui officia deserunt mollit anim id est laborum.
+              Whether you're posting about an upcoming hackathon, sharing internship
+              opportunities, looking for project collaborators, or celebrating a classmate's
+              achievement, this is your platform. Posts are organized by category so it's easy
+              to find what's relevant to you.
             </p>
             <p>
-              Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut 
-              aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit.
+              All members of the NU Manila CCIT community — students, faculty, and staff —
+              are welcome. Sign in with your institutional account to get started.
             </p>
           </div>
         </div>
@@ -59,8 +61,8 @@ const About: React.FC = () => {
       <div className="card">
         <h2 className="section-title">Platform Features</h2>
         <p className="about-section-subtitle">
-          Lorem ipsum dolor sit amet, consectetur adipiscing elit. Discover what makes 
-          CCIT Wall the perfect platform for our community.
+          Everything you need to stay informed and engaged with the CCIT community,
+          all in one place.
         </p>
         <div className="about-features-grid">
           <div className="about-feature-card">
@@ -69,8 +71,8 @@ const About: React.FC = () => {
             </div>
             <h3>Connect</h3>
             <p>
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor 
-              incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.
+              Follow fellow students, faculty, and staff. Browse community member profiles
+              and see what others in the CCIT college are working on.
             </p>
           </div>
           <div className="about-feature-card">
@@ -79,18 +81,18 @@ const About: React.FC = () => {
             </div>
             <h3>Share</h3>
             <p>
-              Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore 
-              eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident.
+              Post announcements, events, opportunities, and updates. Attach images,
+              pick a category, and choose a style that fits your message.
             </p>
           </div>
           <div className="about-feature-card">
             <div className="about-feature-icon">
-              <FiBookOpen />
+              <FiZap />
             </div>
-            <h3>Learn</h3>
+            <h3>Engage</h3>
             <p>
-              Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia 
-              deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis.
+              Like, react to, and comment on posts. Stay in the loop with real-time
+              notifications whenever someone interacts with your content.
             </p>
           </div>
         </div>
@@ -100,8 +102,8 @@ const About: React.FC = () => {
       <div className="card">
         <h2 className="section-title">Campus Life</h2>
         <p className="about-section-subtitle">
-          Lorem ipsum dolor sit amet, consectetur adipiscing elit. Experience the vibrant 
-          community at National University.
+          A glimpse of student life at National University Manila's College of Computing
+          and Information Technologies.
         </p>
         <div className="about-gallery-grid">
           <div className="about-gallery-item about-gallery-item-large">
@@ -193,7 +195,8 @@ const About: React.FC = () => {
               <div className="about-contact-item">
                 <span className="about-contact-label">Programs:</span>
                 <span className="about-contact-value">
-                  BS Computer Science, BS Information Technology
+                  BS Computer Science, BS Information Technology,
+                  BS Entertainment and Multimedia Computing
                 </span>
               </div>
             </div>

@@ -59,6 +59,7 @@ const allowedOrigins = [
   'http://localhost:3001',
   'http://127.0.0.1:3001',
   'http://localhost:3002',
+  'https://ccit-wall.vercel.app',
   'https://ccit-wall-2026-d5sb.vercel.app',
   'https://ccit-wall-2026.vercel.app'
 ];
@@ -72,8 +73,8 @@ app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (e.g., mobile apps, curl, server-to-server)
     if (!origin) return callback(null, true);
-    // Allow any Vercel preview deployment URL for this project
-    if (origin.match(/^https:\/\/ccit-wall-2026.*\.vercel\.app$/)) {
+    // Allow current and preview Vercel deployment URLs for this project
+    if (origin.match(/^https:\/\/ccit-wall(?:-[a-z0-9-]+)?\.vercel\.app$/i)) {
       return callback(null, true);
     }
     // Allow explicitly listed origins

@@ -4,7 +4,9 @@ import { postService } from '../services/api';
 import { Post as PostType } from '../types';
 import PostComponent from '../components/Post';
 import CreatePostWidget from '../components/CreatePostWidget';
+import { PostSkeleton } from '../components/SkeletonLoader';
 import { useSession } from '../contexts/SessionContext';
+import { cache, CACHE_TTL, postsCacheKey } from '../utils/cache';
 import { FiInbox } from 'react-icons/fi';
 import '../styles/index.css';
 
@@ -26,10 +28,18 @@ const Feed: React.FC = () => {
   }, [category, searchQuery]);
 
   const loadPosts = async () => {
+    const key = postsCacheKey(category);
+    const cached = cache.get<PostType[]>(key);
+    if (cached) {
+      setPosts(cached);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const response = await postService.getAllPosts('', category);
       setPosts(response.data);
+      cache.set(key, response.data, CACHE_TTL.POSTS);
     } catch (error: any) {
       console.error('Failed to load posts', error);
       if (error.response?.status === 401) {
@@ -63,6 +73,7 @@ const Feed: React.FC = () => {
   };
 
   const handlePostDeleted = () => {
+    cache.invalidateByPrefix('posts_');
     if (searchQuery) {
       handleSearch();
     } else {
@@ -79,6 +90,7 @@ const Feed: React.FC = () => {
   };
 
   const handlePostCreated = () => {
+    cache.invalidateByPrefix('posts_');
     loadPosts();
   };
 
@@ -96,8 +108,10 @@ const Feed: React.FC = () => {
 
       {/* Posts List */}
       {loading ? (
-        <div className="feed-loading">
-          Loading posts...
+        <div className="posts-list">
+          {[1, 2, 3].map((i) => (
+            <PostSkeleton key={i} />
+          ))}
         </div>
       ) : posts.length === 0 ? (
         <div className="feed-empty-state">

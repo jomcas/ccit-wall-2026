@@ -3,7 +3,9 @@ import { authService, postService } from "../services/api";
 import { User, Post as PostType } from "../types";
 import PostComponent from "../components/Post";
 import ProfilePictureUploader from "../components/ProfilePictureUploader";
+import { ProfileCardSkeleton, PostSkeleton } from "../components/SkeletonLoader";
 import { useSession } from "../contexts/SessionContext";
+import { cache, CACHE_TTL } from "../utils/cache";
 import { FiAlertCircle, FiCheckCircle, FiInbox, FiEdit2, FiUser, FiMail, FiFileText, FiPhone } from 'react-icons/fi';
 import "../styles/index.css";
 
@@ -38,10 +40,24 @@ const Profile: React.FC = () => {
   }, [user]);
 
   const loadProfile = async () => {
+    const cached = cache.get<User>('my_profile');
+    if (cached) {
+      setUser(cached);
+      setFormData({
+        name: cached.name || "",
+        email: cached.email || "",
+        bio: cached.bio || "",
+        profilePicture: cached.profilePicture || "",
+        contactInformation: cached.contactInformation || "",
+      });
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const response = await authService.getProfile();
       setUser(response.data);
+      cache.set('my_profile', response.data, CACHE_TTL.PROFILE);
       setFormData({
         name: response.data.name || "",
         email: response.data.email || "",
@@ -123,6 +139,7 @@ const Profile: React.FC = () => {
       const response = await authService.updateProfile(formData);
       const updatedUser = response.data.user;
       setUser(updatedUser);
+      cache.set('my_profile', updatedUser, CACHE_TTL.PROFILE);
       // Update context and localStorage to sync with sidebar and other components
       updateUserData(updatedUser);
       setSuccess("Profile updated successfully!");
@@ -164,10 +181,11 @@ const Profile: React.FC = () => {
   if (loading) {
     return (
       <div className="profile-container">
-        <div className="profile-loading">
-          <div className="profile-loading-spinner"></div>
-          <p>Loading profile...</p>
+        <div className="profile-header-section">
+          <div className="skeleton-bone" style={{ width: '180px', height: '28px' }} />
+          <div className="skeleton-bone" style={{ width: '280px', height: '16px', marginTop: '8px' }} />
         </div>
+        <ProfileCardSkeleton />
       </div>
     );
   }
@@ -380,8 +398,8 @@ const Profile: React.FC = () => {
         <h2 className="section-title">My Posts</h2>
 
         {postsLoading ? (
-          <div className="profile-card">
-            <p className="loading-text">Loading your posts...</p>
+          <div className="posts-list">
+            {[1, 2].map((i) => <PostSkeleton key={i} />)}
           </div>
         ) : posts.length === 0 ? (
           <div className="feed-empty-state">

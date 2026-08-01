@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { notificationService } from '../services/api';
 import { Notification, NotificationResponse } from '../types';
 import NotificationItem from '../components/NotificationItem';
+import { NotificationSkeleton } from '../components/SkeletonLoader';
 import { useSession } from '../contexts/SessionContext';
 import { FiBell, FiCheck, FiInbox } from 'react-icons/fi';
 import '../styles/index.css';
@@ -134,8 +135,10 @@ const Notifications: React.FC = () => {
 
       <div className="notifications-list">
         {loading ? (
-          <div className="notification-loading" style={{ padding: '40px', textAlign: 'center' }}>
-            Loading notifications...
+          <div className="notifications-list">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <NotificationSkeleton key={i} />
+            ))}
           </div>
         ) : notifications.length === 0 ? (
           <div className="empty-state" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '60px 20px' }}>

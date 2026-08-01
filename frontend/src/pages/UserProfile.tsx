@@ -3,7 +3,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import { userService, postService } from "../services/api";
 import { User, Post as PostType } from "../types";
 import PostComponent from "../components/Post";
+import { ProfileCardSkeleton, PostSkeleton } from "../components/SkeletonLoader";
 import { useSession } from "../contexts/SessionContext";
+import { cache, CACHE_TTL } from "../utils/cache";
 import { FiAlertCircle, FiArrowLeft, FiInbox, FiMail, FiFileText, FiPhone } from 'react-icons/fi';
 import "../styles/index.css";
 
@@ -35,12 +37,24 @@ const UserProfile: React.FC = () => {
   }, [user]);
 
   const loadUserProfile = async () => {
+    const cacheKey = `user_profile_${userId}`;
+    const cached = cache.get<User>(cacheKey);
+    if (cached) {
+      const cachedId = cached._id || cached.id;
+      const currentUserId = currentUser?._id || currentUser?.id;
+      if (currentUser && (cachedId === currentUserId || cached.email === currentUser.email)) {
+        navigate('/profile', { replace: true });
+        return;
+      }
+      setUser(cached);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const response = await userService.getUserById(userId!);
       const fetchedUser = response.data;
       
-      // Check if this is the current user's profile
       const fetchedUserId = fetchedUser._id || fetchedUser.id;
       const currentUserId = currentUser?._id || currentUser?.id;
       
@@ -50,6 +64,7 @@ const UserProfile: React.FC = () => {
       }
       
       setUser(fetchedUser);
+      cache.set(cacheKey, fetchedUser, CACHE_TTL.PROFILE);
     } catch (error) {
       setError("Failed to load user profile");
       console.error("Failed to load user profile", error);
@@ -99,10 +114,10 @@ const UserProfile: React.FC = () => {
   if (loading) {
     return (
       <div className="profile-container">
-        <div className="profile-loading">
-          <div className="profile-loading-spinner"></div>
-          <p>Loading profile...</p>
+        <div className="profile-header-section">
+          <div className="skeleton-bone" style={{ width: '180px', height: '28px' }} />
         </div>
+        <ProfileCardSkeleton />
       </div>
     );
   }
@@ -204,8 +219,8 @@ const UserProfile: React.FC = () => {
         <h2 className="section-title">{user.name}'s Posts</h2>
 
         {postsLoading ? (
-          <div className="profile-card">
-            <p className="loading-text">Loading posts...</p>
+          <div className="posts-list">
+            {[1, 2].map((i) => <PostSkeleton key={i} />)}
           </div>
         ) : posts.length === 0 ? (
           <div className="feed-empty-state">
