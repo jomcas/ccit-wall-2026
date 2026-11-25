@@ -2,18 +2,16 @@ import React, { createContext, useContext, useState, useCallback, useRef, useEff
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import SessionExpiredDialog from '../components/SessionExpiredDialog';
-import { authService, resetSessionExpiredFlag } from '../services/api';
+import { authService, IS_MOCK_MODE, resetSessionExpiredFlag } from '../services/api';
+import {
+  getActiveMockUser,
+  setActiveMockUserByRole,
+  loginOrCreateMockUser,
+} from '../services/mockApi';
+import { cache } from '../utils/cache';
+import type { User } from '../types';
 
-interface User {
-  id?: string;
-  _id?: string;
-  name?: string;
-  email?: string;
-  profilePicture?: string;
-  role?: string;
-  bio?: string;
-  contactInformation?: string;
-}
+const MOCK_SIGNED_OUT_KEY = 'ccit_mock_signed_out';
 
 interface SessionContextType {
   handleSessionExpired: () => void;
@@ -22,6 +20,14 @@ interface SessionContextType {
   setUser: (user: User | null) => void;
   updateUserData: (updatedUser: User) => void;
   firebaseReady: boolean;
+  isMockMode: boolean;
+  loginMockUser: (
+    email?: string,
+    role?: 'student' | 'teacher' | 'admin',
+    name?: string
+  ) => User;
+  logoutMockUser: () => void;
+  switchMockRole: (role: 'student' | 'teacher' | 'admin') => void;
 }
 
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
@@ -38,13 +44,36 @@ interface SessionProviderProps {
   children: React.ReactNode;
 }
 
+function getInitialUser(): User | null {
+  if (IS_MOCK_MODE) {
+    try {
+      if (localStorage.getItem(MOCK_SIGNED_OUT_KEY) === 'true') {
+        return null;
+      }
+    } catch {
+      // Ignore storage access errors
+    }
+    const mockUser = getActiveMockUser();
+    try {
+      localStorage.setItem('user', JSON.stringify(mockUser));
+    } catch {
+      // Ignore storage access errors
+    }
+    return mockUser;
+  }
+
+  try {
+    const stored = localStorage.getItem('user');
+    return stored ? (JSON.parse(stored) as User) : null;
+  } catch {
+    return null;
+  }
+}
+
 export const SessionProvider: React.FC<SessionProviderProps> = ({ children }) => {
   const [isSessionExpired, setIsSessionExpired] = useState(false);
-  const [firebaseReady, setFirebaseReady] = useState(false);
-  const [user, setUser] = useState<User | null>(() => {
-    const stored = localStorage.getItem('user');
-    return stored ? JSON.parse(stored) : null;
-  });
+  const [firebaseReady, setFirebaseReady] = useState(IS_MOCK_MODE);
+  const [user, setUser] = useState<User | null>(getInitialUser);
 
   // Use ref to prevent multiple calls in quick succession
   const isHandlingExpiration = useRef(false);
@@ -52,11 +81,62 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({ children }) =>
   // Update user and persist to localStorage
   const updateUserData = useCallback((updatedUser: User) => {
     setUser(updatedUser);
-    localStorage.setItem('user', JSON.stringify(updatedUser));
+    try {
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+    } catch {
+      // Ignore storage access errors
+    }
   }, []);
 
-  // Listen to Firebase auth state changes
+  // Mock auth actions
+  const loginMockUser = useCallback(
+    (email?: string, role?: 'student' | 'teacher' | 'admin', name?: string): User => {
+      const nextUser = loginOrCreateMockUser(email, role, name);
+      try {
+        localStorage.removeItem(MOCK_SIGNED_OUT_KEY);
+        localStorage.setItem('user', JSON.stringify(nextUser));
+      } catch {
+        // Ignore storage access errors
+      }
+      cache.invalidateByPrefix('');
+      resetSessionExpiredFlag();
+      setIsSessionExpired(false);
+      setUser(nextUser);
+      return nextUser;
+    },
+    []
+  );
+
+  const logoutMockUser = useCallback(() => {
+    try {
+      localStorage.setItem(MOCK_SIGNED_OUT_KEY, 'true');
+      localStorage.removeItem('user');
+    } catch {
+      // Ignore storage access errors
+    }
+    cache.invalidateByPrefix('');
+    setUser(null);
+  }, []);
+
+  const switchMockRole = useCallback((role: 'student' | 'teacher' | 'admin') => {
+    const nextUser = setActiveMockUserByRole(role);
+    try {
+      localStorage.removeItem(MOCK_SIGNED_OUT_KEY);
+      localStorage.setItem('user', JSON.stringify(nextUser));
+    } catch {
+      // Ignore storage access errors
+    }
+    cache.invalidateByPrefix('');
+    setUser(nextUser);
+  }, []);
+
+  // Listen to Firebase auth state changes (disabled in mock mode)
   useEffect(() => {
+    if (IS_MOCK_MODE) {
+      setFirebaseReady(true);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         // User is signed in — sync with backend to get Mongo user data
@@ -106,10 +186,14 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({ children }) =>
     isHandlingExpiration.current = false;
     resetSessionExpiredFlag();
     setIsSessionExpired(false);
-    // Sign out of Firebase so the login page can restart the flow
-    await signOut(auth);
+    if (IS_MOCK_MODE) {
+      logoutMockUser();
+    } else {
+      // Sign out of Firebase so the login page can restart the flow
+      await signOut(auth);
+    }
     window.location.href = '/login';
-  }, []);
+  }, [logoutMockUser]);
 
   // Listen for localStorage changes from other tabs
   useEffect(() => {
@@ -128,7 +212,20 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({ children }) =>
   }, []);
 
   return (
-    <SessionContext.Provider value={{ handleSessionExpired, isSessionExpired, user, setUser, updateUserData, firebaseReady }}>
+    <SessionContext.Provider
+      value={{
+        handleSessionExpired,
+        isSessionExpired,
+        user,
+        setUser,
+        updateUserData,
+        firebaseReady,
+        isMockMode: IS_MOCK_MODE,
+        loginMockUser,
+        logoutMockUser,
+        switchMockRole,
+      }}
+    >
       {children}
       <SessionExpiredDialog
         isOpen={isSessionExpired}

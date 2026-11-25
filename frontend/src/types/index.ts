@@ -18,10 +18,11 @@ export interface Post {
   author: User;
   category: 'college-activities' | 'general' | 'extracurricular';
   isAnonymous: boolean;
+  isAnnouncement?: boolean;
   attachments?: string[];
   theme?: string;
   likes: string[];
-  reactions: Map<string, string[]>;
+  reactions: Record<string, string[]> | Map<string, string[]>;
   comments: Comment[];
   shares: string[];
   createdAt: Date;
@@ -77,4 +78,12 @@ export interface NotificationResponse {
     totalPages: number;
     hasMore: boolean;
   };
+}
+
+export interface AdminDashboardData {
+  totalUsers: number;
+  totalPosts: number;
+  studentCount: number;
+  teacherCount: number;
+  recentPosts: Post[];
 }

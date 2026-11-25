@@ -6,6 +6,7 @@ export interface IPost extends Document {
   author: mongoose.Types.ObjectId;
   category: 'college-activities' | 'general' | 'extracurricular';
   isAnonymous: boolean;
+  isAnnouncement?: boolean;
   attachments?: string[];
   theme?: string;
   likes: mongoose.Types.ObjectId[];
@@ -27,6 +28,7 @@ const PostSchema: Schema = new Schema(
       required: true,
     },
     isAnonymous: { type: Boolean, default: false },
+    isAnnouncement: { type: Boolean, default: false },
     attachments: [{ type: String }],
     theme: { type: String, default: 'none' },
     likes: [{ type: Schema.Types.ObjectId, ref: 'User' }],

@@ -84,8 +84,9 @@ export const authMiddleware = async (
       });
     }
 
-    // Verify Firebase ID token using Admin SDK
-    const decodedToken = await adminAuth.verifyIdToken(token);
+    // Verify Firebase ID token using Admin SDK (checkRevoked = true rejects
+    // revoked sessions and disabled accounts)
+    const decodedToken = await adminAuth.verifyIdToken(token, true);
 
     if (!decodedToken.uid) {
       return res.status(401).json({
@@ -131,7 +132,8 @@ export const authMiddleware = async (
 
     if (
       error.code === 'auth/argument-error' ||
-      error.code === 'auth/id-token-revoked'
+      error.code === 'auth/id-token-revoked' ||
+      error.code === 'auth/user-disabled'
     ) {
       return res.status(401).json({
         error: 'Unauthorized',
@@ -304,7 +306,7 @@ export const optionalAuthMiddleware = async (
       return next();
     }
 
-    const decodedToken = await adminAuth.verifyIdToken(token);
+    const decodedToken = await adminAuth.verifyIdToken(token, true);
 
     if (decodedToken.uid) {
       const user = await User.findOne({ firebaseUid: decodedToken.uid }).select('_id role');

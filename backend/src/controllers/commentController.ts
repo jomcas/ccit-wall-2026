@@ -3,6 +3,14 @@ import Comment from '../models/Comment';
 import Post from '../models/Post';
 import mongoose from 'mongoose';
 import { createNotification, deleteNotification } from '../utils/notificationHelper';
+import { logger } from '../utils/logger';
+
+const AUTHOR_FIELDS = 'name email role profilePicture';
+
+const handleControllerError = (res: Response, error: unknown, context: string) => {
+  logger.error(context, error instanceof Error ? error : new Error(String(error)));
+  return res.status(500).json({ message: 'Internal server error' });
+};
 
 export const createComment = async (req: Request, res: Response) => {
   try {
@@ -25,18 +33,13 @@ export const createComment = async (req: Request, res: Response) => {
     });
 
     await comment.save();
-    await comment.populate('author', '-password');
+    await comment.populate('author', AUTHOR_FIELDS);
 
     post.comments.push(comment._id);
     await post.save();
 
     // Create notification for post author (if not commenting on own post)
     const userObjectId = new mongoose.Types.ObjectId(req.user.userId);
-    console.log('=== COMMENT NOTIFICATION DEBUG ===');
-    console.log('Post author ID:', post.author.toString());
-    console.log('Comment author ID (sender):', userObjectId.toString());
-    console.log('Are they the same?', post.author.toString() === userObjectId.toString());
-    
     await createNotification({
       recipientId: post.author,
       senderId: userObjectId,
@@ -50,7 +53,7 @@ export const createComment = async (req: Request, res: Response) => {
       comment,
     });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error });
+    handleControllerError(res, error, 'Failed in createComment');
   }
 };
 
@@ -59,12 +62,12 @@ export const getCommentsByPost = async (req: Request, res: Response) => {
     const { postId } = req.params;
 
     const comments = await Comment.find({ post: postId })
-      .populate('author', '-password')
+      .populate('author', AUTHOR_FIELDS)
       .sort({ createdAt: -1 });
 
     res.json(comments);
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error });
+    handleControllerError(res, error, 'Failed in getCommentsByPost');
   }
 };
 
@@ -90,7 +93,7 @@ export const updateComment = async (req: Request, res: Response) => {
 
     res.json({ message: 'Comment updated successfully', comment });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error });
+    handleControllerError(res, error, 'Failed in updateComment');
   }
 };
 
@@ -117,7 +120,7 @@ export const deleteComment = async (req: Request, res: Response) => {
 
     res.json({ message: 'Comment deleted successfully' });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error });
+    handleControllerError(res, error, 'Failed in deleteComment');
   }
 };
 
@@ -163,6 +166,6 @@ export const likeComment = async (req: Request, res: Response) => {
     await comment.save();
     res.json({ message: 'Comment like toggled', comment });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error });
+    handleControllerError(res, error, 'Failed in likeComment');
   }
 };

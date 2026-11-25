@@ -20,7 +20,7 @@ const router = Router();
 router.post('/posts/:postId/comments', authMiddleware, validateCreateComment, createComment);
 
 // Get comments by post with validation
-router.get('/posts/:postId/comments', validatePostIdParam, getCommentsByPost);
+router.get('/posts/:postId/comments', authMiddleware, validatePostIdParam, getCommentsByPost);
 
 // Update comment with validation
 router.put('/comments/:id', authMiddleware, validateUpdateComment, updateComment);

@@ -1,6 +1,7 @@
 import multer, { FileFilterCallback } from 'multer';
 import path from 'path';
-import { Request } from 'express';
+import { Request, Response, NextFunction } from 'express';
+import { validateImageMagicBytes } from '../utils/storage';
 
 /**
  * Multer middleware — memory storage
@@ -52,5 +53,25 @@ export const profilePictureUpload = multer({
     files: 1,
   },
 });
+
+/**
+ * Verify uploaded image buffers match their declared MIME type via magic bytes.
+ * Must run after multer (memory storage).
+ */
+export const verifyUploadedImages = (req: Request, res: Response, next: NextFunction) => {
+  const files: Express.Multer.File[] = [];
+  if (req.file) files.push(req.file);
+  if (Array.isArray(req.files)) {
+    files.push(...req.files);
+  } else if (req.files && typeof req.files === 'object') {
+    for (const group of Object.values(req.files)) files.push(...group);
+  }
+
+  const allValid = files.every((f) => validateImageMagicBytes(f.buffer, f.mimetype));
+  if (!allValid) {
+    return res.status(400).json({ message: 'Unsupported file type: invalid image file signature' });
+  }
+  next();
+};
 
 export default upload;

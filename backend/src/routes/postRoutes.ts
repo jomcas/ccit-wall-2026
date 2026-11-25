@@ -17,26 +17,27 @@ import {
   validatePostId,
   validateReaction,
   validateSearchQuery,
+  validateGetPostsQuery,
 } from '../middleware/validation';
-import upload from '../middleware/upload';
+import upload, { verifyUploadedImages } from '../middleware/upload';
 
 const router = Router();
 
 // Create post with image upload support (up to 4 images)
 // Note: upload.array() must come before validateCreatePost since it parses multipart/form-data
-router.post('/posts', authMiddleware, upload.array('images', 4), validateCreatePost, createPost);
+router.post('/posts', authMiddleware, upload.array('images', 4), verifyUploadedImages, validateCreatePost, createPost);
 
 // Get all posts 
-router.get('/posts', authMiddleware, getAllPosts);
+router.get('/posts', authMiddleware, validateGetPostsQuery, getAllPosts);
 
 // Search posts with query validation
 router.get('/posts/search', authMiddleware, validateSearchQuery, searchPosts);
 
 // Get single post with ID validation
-router.get('/posts/:id', validatePostId, getPostById);
+router.get('/posts/:id', authMiddleware, validatePostId, getPostById);
 
 // Update post with validation and image upload support
-router.put('/posts/:id', authMiddleware, upload.array('images', 4), validatePostId, validateUpdatePost, updatePost);
+router.put('/posts/:id', authMiddleware, upload.array('images', 4), verifyUploadedImages, validatePostId, validateUpdatePost, updatePost);
 
 // Delete post with ID validation
 router.delete('/posts/:id', authMiddleware, validatePostId, deletePost);
