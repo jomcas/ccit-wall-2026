@@ -6,12 +6,13 @@ import {
   searchPosts,
 } from '../controllers/adminController';
 import { authMiddleware, adminMiddleware } from '../middleware/auth';
+import { validateUserIdParam, validateSearchQuery } from '../middleware/validation';
 
 const router = Router();
 
 router.get('/dashboard', authMiddleware, adminMiddleware, getActivityDashboard);
-router.get('/users/:userId/activity', authMiddleware, adminMiddleware, getUserActivityLog);
-router.get('/search/users', authMiddleware, adminMiddleware, searchUsers);
-router.get('/search/posts', authMiddleware, adminMiddleware, searchPosts);
+router.get('/users/:userId/activity', authMiddleware, adminMiddleware, validateUserIdParam, getUserActivityLog);
+router.get('/search/users', authMiddleware, adminMiddleware, validateSearchQuery, searchUsers);
+router.get('/search/posts', authMiddleware, adminMiddleware, validateSearchQuery, searchPosts);
 
 export default router;

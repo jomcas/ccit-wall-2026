@@ -27,6 +27,36 @@ const ALLOWED_TYPES: Record<string, string> = {
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
 /**
+ * Verify that a buffer's leading bytes (magic bytes) match the declared image MIME type.
+ */
+export function validateImageMagicBytes(buffer: Buffer, mimetype: string): boolean {
+  if (!Buffer.isBuffer(buffer)) return false;
+  switch (mimetype) {
+    case 'image/jpeg':
+      return buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+    case 'image/png': {
+      const sig = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+      return buffer.length >= 8 && sig.every((b, i) => buffer[i] === b);
+    }
+    case 'image/gif': {
+      if (buffer.length < 6) return false;
+      const head = buffer.toString('ascii', 0, 6);
+      return head === 'GIF87a' || head === 'GIF89a';
+    }
+    case 'image/webp':
+      return (
+        buffer.length >= 12 &&
+        buffer.toString('ascii', 0, 4) === 'RIFF' &&
+        buffer.toString('ascii', 8, 12) === 'WEBP'
+      );
+    default:
+      return false;
+  }
+}
+
+const MAGIC_BYTES_ERROR = 'Unsupported file type: file content does not match declared image format';
+
+/**
  * Upload a file buffer to Firebase Storage.
  *
  * @param buffer     - The raw file buffer (from multer memory storage)
@@ -47,6 +77,10 @@ export async function uploadFile(
   // Validate size
   if (buffer.length > MAX_FILE_SIZE) {
     throw new Error(`File too large (${(buffer.length / 1024 / 1024).toFixed(1)} MB). Max: 5 MB.`);
+  }
+
+  if (!validateImageMagicBytes(buffer, mimetype)) {
+    throw new Error(MAGIC_BYTES_ERROR);
   }
 
   // Build a unique destination path: posts/<uuid><ext>
@@ -100,6 +134,10 @@ export async function uploadProfilePicture(
   // Validate size
   if (buffer.length > MAX_FILE_SIZE) {
     throw new Error(`File too large (${(buffer.length / 1024 / 1024).toFixed(1)} MB). Max: 5 MB.`);
+  }
+
+  if (!validateImageMagicBytes(buffer, mimetype)) {
+    throw new Error(MAGIC_BYTES_ERROR);
   }
 
   const ext = ALLOWED_TYPES[mimetype] || path.extname(originalName).toLowerCase() || '.bin';

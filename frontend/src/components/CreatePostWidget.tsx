@@ -1,26 +1,67 @@
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useMemo, useEffect, useId } from 'react';
+import {
+  FiImage,
+  FiX,
+  FiSend,
+  FiLock,
+  FiCheck,
+  FiBookmark,
+  FiUploadCloud,
+  FiChevronDown,
+  FiChevronUp,
+  FiEdit3,
+} from 'react-icons/fi';
 import { postService } from '../services/api';
 import { useSession } from '../contexts/SessionContext';
-import { FiImage, FiX, FiSend, FiLock, FiChevronUp, FiCheck } from 'react-icons/fi';
-import { POST_THEMES, getThemeById, getPostDisplayMode, POSTER_MODE_MAX_LENGTH } from '../config/themes';
+import {
+  POST_THEMES,
+  getThemeById,
+  getPostDisplayMode,
+  POSTER_MODE_MAX_LENGTH,
+} from '../config/themes';
 
 interface CreatePostWidgetProps {
   onPostCreated?: () => void;
 }
 
+type ComposerMode = 'standard' | 'announcement' | 'anonymous' | 'photo';
+
+function getInitials(name?: string): string {
+  if (!name) return 'U';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'U';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
 const CreatePostWidget: React.FC<CreatePostWidgetProps> = ({ onPostCreated }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('general');
+  const [category, setCategory] = useState<'college-activities' | 'general' | 'extracurricular'>(
+    'general'
+  );
   const [selectedTheme, setSelectedTheme] = useState('none');
+  const [showStylePicker, setShowStylePicker] = useState(false);
   const [isAnonymous, setIsAnonymous] = useState(false);
+  const [isAnnouncement, setIsAnnouncement] = useState(false);
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const dialogId = useId();
+  const titleId = useId();
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
+
   const { handleSessionExpired, user } = useSession();
+
+  const isTeacher = user?.role === 'teacher';
+  const canAnnounce = user?.role === 'teacher' || user?.role === 'admin';
+  const canPostAnonymously = !isTeacher && !isAnnouncement;
 
   // Theme logic
   const currentTheme = useMemo(() => getThemeById(selectedTheme), [selectedTheme]);
@@ -31,48 +72,151 @@ const CreatePostWidget: React.FC<CreatePostWidgetProps> = ({ onPostCreated }) =>
   const remainingChars = POSTER_MODE_MAX_LENGTH - description.length;
   const showCharCounter = selectedTheme !== 'none' && images.length === 0;
 
-  const handleFocus = () => {
-    setIsExpanded(true);
-  };
+  // Ensure the HTML autofocus attribute is present on the title input so native showModal()
+  // focuses it reliably on every open (React 18 strips JSX autoFocus from the DOM attribute).
+  useEffect(() => {
+    titleInputRef.current?.setAttribute('autofocus', '');
+  }, []);
 
-  const handleCollapse = () => {
-    if (!title && !description && images.length === 0) {
-      setIsExpanded(false);
+  // Ensure teacher role or announcement mode cannot stay anonymous
+  useEffect(() => {
+    if (isTeacher || isAnnouncement) {
+      setIsAnonymous(false);
     }
-  };
-
-  const processFiles = useCallback((files: FileList | File[]) => {
-    const newFiles = Array.from(files);
-    const totalFiles = images.length + newFiles.length;
-
-    if (totalFiles > 4) {
-      setError('You can only upload up to 4 images');
-      return;
+    if (!canAnnounce && isAnnouncement) {
+      setIsAnnouncement(false);
     }
+  }, [isTeacher, isAnnouncement, canAnnounce]);
 
-    const validFiles: File[] = [];
-    const validPreviews: string[] = [];
+  // Native <dialog> close listener + closedby="any" pointer-rect fallback
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
 
-    for (const file of newFiles) {
-      const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-      if (!validTypes.includes(file.type)) {
-        setError('Only JPEG, PNG, GIF, and WebP images are allowed');
-        continue;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        setError('Each image must be less than 5MB');
-        continue;
-      }
-      validFiles.push(file);
-      validPreviews.push(URL.createObjectURL(file));
-    }
-
-    if (validFiles.length > 0) {
-      setImages((prev) => [...prev, ...validFiles]);
-      setImagePreviews((prev) => [...prev, ...validPreviews]);
+    const handleClose = () => {
+      dialog.returnValue = '';
       setError('');
+    };
+
+    dialog.addEventListener('close', handleClose);
+
+    if (typeof HTMLDialogElement !== 'undefined' && !('closedBy' in HTMLDialogElement.prototype)) {
+      const isOutside = (e: PointerEvent) => {
+        const rect = dialog.getBoundingClientRect();
+        return (
+          e.clientX < rect.left ||
+          e.clientX > rect.right ||
+          e.clientY < rect.top ||
+          e.clientY > rect.bottom
+        );
+      };
+
+      let pressedOutside = false;
+      const handlePointerDown = (e: PointerEvent) => {
+        pressedOutside = isOutside(e);
+      };
+      const handlePointerUp = (e: PointerEvent) => {
+        if (pressedOutside && isOutside(e) && dialog.open) {
+          dialog.close();
+        }
+        pressedOutside = false;
+      };
+
+      dialog.addEventListener('pointerdown', handlePointerDown);
+      dialog.addEventListener('pointerup', handlePointerUp);
+
+      return () => {
+        dialog.removeEventListener('close', handleClose);
+        dialog.removeEventListener('pointerdown', handlePointerDown);
+        dialog.removeEventListener('pointerup', handlePointerUp);
+      };
     }
-  }, [images.length]);
+
+    return () => {
+      dialog.removeEventListener('close', handleClose);
+    };
+  }, []);
+
+  const openComposer = useCallback(
+    (mode: ComposerMode = 'standard') => {
+      setError('');
+
+      if (mode === 'announcement' && canAnnounce) {
+        setIsAnnouncement(true);
+        setIsAnonymous(false);
+        setCategory('college-activities');
+      } else if (mode === 'anonymous' && !isTeacher) {
+        setIsAnnouncement(false);
+        setIsAnonymous(true);
+      } else {
+        setIsAnnouncement(false);
+        setIsAnonymous(false);
+      }
+
+      const dialog = dialogRef.current;
+      if (dialog && !dialog.open) {
+        dialog.showModal();
+      }
+
+      if (mode === 'photo') {
+        fileInputRef.current?.click();
+      }
+    },
+    [canAnnounce, isTeacher]
+  );
+
+  // Listen to header "+ New Post" event when on /feed
+  useEffect(() => {
+    const handleOpenEvent = (event: Event) => {
+      const custom = event as CustomEvent<{ mode?: ComposerMode }>;
+      openComposer(custom.detail?.mode || 'standard');
+    };
+    window.addEventListener('ccit:open-composer', handleOpenEvent);
+    return () => window.removeEventListener('ccit:open-composer', handleOpenEvent);
+  }, [openComposer]);
+
+  const closeComposer = () => {
+    const dialog = dialogRef.current;
+    if (dialog && dialog.open) {
+      dialog.close();
+    }
+  };
+
+  const processFiles = useCallback(
+    (files: FileList | File[]) => {
+      const newFiles = Array.from(files);
+      const totalFiles = images.length + newFiles.length;
+
+      if (totalFiles > 4) {
+        setError('You can only upload up to 4 images');
+        return;
+      }
+
+      const validFiles: File[] = [];
+      const validPreviews: string[] = [];
+
+      for (const file of newFiles) {
+        const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (!validTypes.includes(file.type)) {
+          setError('Only JPEG, PNG, GIF, and WebP images are allowed');
+          continue;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          setError('Each image must be less than 5MB');
+          continue;
+        }
+        validFiles.push(file);
+        validPreviews.push(URL.createObjectURL(file));
+      }
+
+      if (validFiles.length > 0) {
+        setImages((prev) => [...prev, ...validFiles]);
+        setImagePreviews((prev) => [...prev, ...validPreviews]);
+        setError('');
+      }
+    },
+    [images.length]
+  );
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -82,6 +226,52 @@ const CreatePostWidget: React.FC<CreatePostWidgetProps> = ({ onPostCreated }) =>
       fileInputRef.current.value = '';
     }
   };
+
+  const handleDragEnter = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (images.length < 4) setIsDragging(true);
+    },
+    [images.length]
+  );
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (dropZoneRef.current && !dropZoneRef.current.contains(e.relatedTarget as Node)) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
+
+      if (images.length >= 4) {
+        setError('You can only upload up to 4 images');
+        return;
+      }
+
+      const files = e.dataTransfer.files;
+      if (files && files.length > 0) {
+        const imageFiles = Array.from(files).filter((file) => file.type.startsWith('image/'));
+        if (imageFiles.length > 0) {
+          processFiles(imageFiles);
+        } else {
+          setError('Please drop image files only');
+        }
+      }
+    },
+    [images.length, processFiles]
+  );
 
   const removeImage = (index: number) => {
     URL.revokeObjectURL(imagePreviews[index]);
@@ -94,12 +284,13 @@ const CreatePostWidget: React.FC<CreatePostWidgetProps> = ({ onPostCreated }) =>
     setDescription('');
     setCategory('general');
     setSelectedTheme('none');
+    setShowStylePicker(false);
     setIsAnonymous(false);
-    setImages([]);
+    setIsAnnouncement(false);
     imagePreviews.forEach((url) => URL.revokeObjectURL(url));
+    setImages([]);
     setImagePreviews([]);
     setError('');
-    setIsExpanded(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -114,10 +305,11 @@ const CreatePostWidget: React.FC<CreatePostWidgetProps> = ({ onPostCreated }) =>
 
     try {
       const formData = new FormData();
-      formData.append('title', title);
-      formData.append('description', description);
+      formData.append('title', title.trim());
+      formData.append('description', description.trim());
       formData.append('category', category);
-      formData.append('isAnonymous', String(isAnonymous));
+      formData.append('isAnonymous', String(canPostAnonymously && isAnonymous));
+      formData.append('isAnnouncement', String(canAnnounce && isAnnouncement));
       formData.append('theme', selectedTheme);
 
       images.forEach((image) => {
@@ -126,228 +318,434 @@ const CreatePostWidget: React.FC<CreatePostWidgetProps> = ({ onPostCreated }) =>
 
       await postService.createPost(formData);
       resetForm();
+      closeComposer();
       if (onPostCreated) {
         onPostCreated();
       }
-    } catch (err: any) {
-      if (err.response?.status === 401) {
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 401) {
+        closeComposer();
         handleSessionExpired();
         return;
       }
-      setError(err.response?.data?.message || 'Failed to create post');
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Failed to create post';
+      setError(message);
     } finally {
       setLoading(false);
     }
   };
 
+  const avatarVariant = user?.role === 'student' ? 'shell-avatar--gold' : '';
+  const visibleModesCount = 2 + (canAnnounce ? 1 : 0) + (!isTeacher ? 1 : 0);
+  const isOddModes = visibleModesCount % 2 === 1;
+
   return (
-    <div className={`create-post-widget ${isExpanded ? 'expanded' : ''}`}>
-      {/* Collapsed View */}
-      {!isExpanded && (
-        <div className="create-post-collapsed" onClick={handleFocus}>
+    <>
+      {/* Compact Inline Composer Trigger Bar */}
+      <div className="paper composer-trigger">
+        <div className="composer-trigger__row">
           {user?.profilePicture ? (
-            <img src={user.profilePicture} alt={user.name || 'User'} className="create-post-avatar" />
+            <img src={user.profilePicture} alt="" className="shell-avatar" />
           ) : (
-            <div className="create-post-avatar-placeholder">
-              {user?.name?.charAt(0) || 'U'}
-            </div>
+            <span className={`shell-avatar ${avatarVariant}`} aria-hidden="true">
+              {getInitials(user?.name)}
+            </span>
           )}
-          <div className="create-post-input-fake">
-            What's on your mind, {user?.name?.split(' ')[0] || 'there'}?
-          </div>
-          <button 
-            type="button" 
-            className="create-post-image-btn"
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsExpanded(true);
-              setTimeout(() => fileInputRef.current?.click(), 100);
-            }}
+          <button
+            type="button"
+            className="composer-trigger__fake"
+            onClick={() => openComposer('standard')}
           >
-            <FiImage size={20} />
+            Share an update, question, or announcement with CCIT...
           </button>
         </div>
-      )}
 
-      {/* Expanded View */}
-      {isExpanded && (
-        <form onSubmit={handleSubmit} className="create-post-expanded">
-          <div className="create-post-header">
-            <div className="create-post-user">
-              {user?.profilePicture ? (
-                <img src={user.profilePicture} alt={user.name || 'User'} className="create-post-avatar" />
-              ) : (
-                <div className="create-post-avatar-placeholder">
-                  {user?.name?.charAt(0) || 'U'}
-                </div>
+        <div className={`composer-trigger__modes ${isOddModes ? 'composer-trigger__modes--odd' : ''}`}>
+          <button
+            type="button"
+            className="btn btn--subtle shell-btn-sm"
+            onClick={() => openComposer('standard')}
+          >
+            <FiEdit3 size={14} aria-hidden="true" />
+            <span>Standard Post</span>
+          </button>
+
+          {canAnnounce && (
+            <button
+              type="button"
+              className="btn btn--subtle shell-btn-sm"
+              onClick={() => openComposer('announcement')}
+            >
+              <FiBookmark size={14} aria-hidden="true" />
+              <span>Faculty Announcement</span>
+            </button>
+          )}
+
+          {!isTeacher && (
+            <button
+              type="button"
+              className="btn btn--subtle shell-btn-sm"
+              onClick={() => openComposer('anonymous')}
+            >
+              <FiLock size={14} aria-hidden="true" />
+              <span>Post Anonymously</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            className="btn btn--ghost shell-btn-sm composer-trigger__attach-btn"
+            onClick={() => openComposer('photo')}
+          >
+            <FiImage size={14} aria-hidden="true" />
+            <span>Attach Photo</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Native <dialog> Modal Composer (no role="dialog" or aria-modal) */}
+      <dialog
+        id={dialogId}
+        ref={dialogRef}
+        className="composer-dialog"
+        aria-labelledby={titleId}
+        {...({ closedby: 'any' } as Record<string, string>)}
+      >
+        <div className="dialog-head">
+          <h1 id={titleId} className="dialog-head__title">
+            {isAnnouncement ? 'New Faculty Announcement' : 'New Campus Post'}
+          </h1>
+          <button
+            type="button"
+            className="btn btn--ghost shell-btn-icon"
+            onClick={closeComposer}
+            aria-label="Close composer"
+          >
+            <FiX size={18} aria-hidden="true" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="dialog-body">
+          {error && (
+            <div className="composer-error" role="alert">
+              {error}
+            </div>
+          )}
+
+          {/* Top 2-Column Row: Posting As + Category */}
+          <div className="composer-grid-2">
+            <div className="composer-field">
+              <label htmlFor={`${dialogId}-sender`}>Posting as</label>
+              <select
+                id={`${dialogId}-sender`}
+                className="composer-select"
+                value={canPostAnonymously && isAnonymous ? 'anonymous' : 'public'}
+                onChange={(e) => setIsAnonymous(e.target.value === 'anonymous')}
+                disabled={!canPostAnonymously}
+              >
+                <option value="public">{user?.name || 'User'} (Public)</option>
+                {!isTeacher && <option value="anonymous">Anonymous</option>}
+              </select>
+              {isTeacher && (
+                <span className="composer-hint">Faculty posts are always public.</span>
               )}
-              <div className="create-post-user-info">
-                <span className="create-post-user-name">{user?.name || 'User'}</span>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="create-post-category-select"
+              {!isTeacher && isAnnouncement && (
+                <span className="composer-hint">Pinned announcements require a public author.</span>
+              )}
+            </div>
+
+            <div className="composer-field">
+              <label htmlFor={`${dialogId}-category`}>Category</label>
+              <select
+                id={`${dialogId}-category`}
+                className="composer-select"
+                value={category}
+                onChange={(e) =>
+                  setCategory(
+                    e.target.value as 'college-activities' | 'general' | 'extracurricular'
+                  )
+                }
+              >
+                <option value="college-activities">College Activities</option>
+                <option value="general">General</option>
+                <option value="extracurricular">Extracurricular</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Post Format Toggle (Teachers & Admins only) */}
+          {canAnnounce && (
+            <div className="composer-field">
+              <span className="composer-field__label">Post format</span>
+              <div className="composer-format-selector" role="group" aria-label="Post format">
+                <button
+                  type="button"
+                  className={`composer-format-btn ${!isAnnouncement ? 'active' : ''}`}
+                  aria-pressed={!isAnnouncement}
+                  onClick={() => setIsAnnouncement(false)}
                 >
-                  <option value="general">General</option>
-                  <option value="college-activities">College Activities</option>
-                  <option value="extracurricular">Extracurricular</option>
-                </select>
+                  <FiEdit3 size={14} aria-hidden="true" />
+                  <span>Standard Post</span>
+                </button>
+                <button
+                  type="button"
+                  className={`composer-format-btn composer-format-btn--gold ${
+                    isAnnouncement ? 'active' : ''
+                  }`}
+                  aria-pressed={isAnnouncement}
+                  onClick={() => {
+                    setIsAnnouncement(true);
+                    setIsAnonymous(false);
+                  }}
+                >
+                  <FiBookmark size={14} aria-hidden="true" />
+                  <span>Pinned Announcement</span>
+                </button>
               </div>
             </div>
-            <button 
-              type="button" 
-              className="create-post-collapse-btn"
-              onClick={handleCollapse}
-            >
-              <FiChevronUp size={20} />
-            </button>
+          )}
+
+          {/* Title */}
+          <div className="composer-field">
+            <label htmlFor={`${dialogId}-title`}>Title</label>
+            <input
+              ref={titleInputRef}
+              id={`${dialogId}-title`}
+              type="text"
+              className="composer-input"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Give your post a clear headline"
+              required
+              autoFocus
+            />
           </div>
 
-          {error && <div className="create-post-error">{error}</div>}
+          {/* Description */}
+          <div className="composer-field">
+            <label htmlFor={`${dialogId}-body`}>Description</label>
+            <textarea
+              id={`${dialogId}-body`}
+              className="composer-textarea"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Write details, schedules, or questions for CCIT..."
+              required
+            />
+          </div>
 
-          {/* Theme Preview (Poster Mode) */}
-          {selectedTheme !== 'none' && displayMode === 'poster' && (
-            <div 
-              className="create-post-theme-preview poster"
-              style={{ background: currentTheme.gradient }}
+          {/* Collapsible Optional Post Style Swatch Picker */}
+          <div className="composer-style-box">
+            <button
+              type="button"
+              className="composer-style-toggle"
+              onClick={() => setShowStylePicker((prev) => !prev)}
+              aria-expanded={showStylePicker}
             >
-              <p style={{ color: currentTheme.textColor }}>
-                {description || 'Your message will appear here...'}
-              </p>
-            </div>
-          )}
-
-          {/* Theme Preview (Banner Mode) */}
-          {selectedTheme !== 'none' && displayMode === 'banner' && (
-            <div 
-              className="create-post-theme-preview banner"
-              style={{ background: currentTheme.gradient }}
-            >
-              <h4 style={{ color: currentTheme.textColor, margin: 0 }}>
-                {title || 'Your Title'}
-              </h4>
-            </div>
-          )}
-
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Title"
-            className="create-post-title-input"
-            autoFocus
-          />
-
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder={`What's on your mind, ${user?.name?.split(' ')[0] || 'there'}?`}
-            className="create-post-textarea"
-            rows={3}
-          />
-
-          {/* Character counter for poster mode */}
-          {showCharCounter && (
-            <div className={`create-post-char-counter ${remainingChars < 0 ? 'over-limit' : remainingChars < 50 ? 'near-limit' : ''}`}>
-              {remainingChars >= 0 ? (
-                <span>{remainingChars} chars left for full background</span>
+              <span className="composer-style-toggle__left">
+                <span>Post style (optional)</span>
+                {selectedTheme !== 'none' && (
+                  <span className="stamp stamp--neutral">{currentTheme.name}</span>
+                )}
+              </span>
+              {showStylePicker ? (
+                <FiChevronUp size={16} aria-hidden="true" />
               ) : (
-                <span>Banner style (text too long)</span>
+                <FiChevronDown size={16} aria-hidden="true" />
+              )}
+            </button>
+
+            {showStylePicker && (
+              <div className="composer-style-body">
+                <div className="composer-swatches">
+                  {POST_THEMES.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      className={`composer-swatch ${
+                        t.id === 'none' ? 'composer-swatch--none' : ''
+                      } ${selectedTheme === t.id ? 'selected' : ''}`}
+                      style={t.id === 'none' ? undefined : { background: t.gradient }}
+                      onClick={() => setSelectedTheme(t.id)}
+                      title={t.name}
+                      aria-label={`Select ${t.name} theme`}
+                    >
+                      {selectedTheme === t.id ? (
+                        <FiCheck
+                          size={13}
+                          style={{
+                            color: t.id === 'none' ? 'var(--ink-secondary)' : t.textColor,
+                          }}
+                        />
+                      ) : (
+                        t.id === 'none' && <FiX size={11} aria-hidden="true" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                {selectedTheme !== 'none' && (
+                  <>
+                    {displayMode === 'poster' ? (
+                      <div
+                        className="post-poster-frame"
+                        style={{ background: currentTheme.gradient, color: currentTheme.textColor }}
+                      >
+                        {title && (
+                          <h3
+                            className="post-poster-frame__title"
+                            style={{ color: currentTheme.textColor }}
+                          >
+                            {title}
+                          </h3>
+                        )}
+                        <p
+                          className="post-poster-frame__body"
+                          style={{ color: currentTheme.textColor }}
+                        >
+                          {description || 'Your framed poster message will appear here...'}
+                        </p>
+                      </div>
+                    ) : (
+                      <div
+                        className="post-banner-frame"
+                        style={{ background: currentTheme.gradient, color: currentTheme.textColor }}
+                      >
+                        <h3
+                          className="post-banner-frame__title"
+                          style={{ color: currentTheme.textColor }}
+                        >
+                          {title || 'Your framed title banner'}
+                        </h3>
+                      </div>
+                    )}
+
+                    {showCharCounter && (
+                      <span
+                        className={`composer-char-counter ${
+                          remainingChars < 0
+                            ? 'composer-char-counter--over'
+                            : remainingChars < 50
+                            ? 'composer-char-counter--warn'
+                            : ''
+                        }`}
+                      >
+                        {remainingChars >= 0
+                          ? `${remainingChars} chars left for full poster frame`
+                          : 'Switched to banner header (text exceeds 280 chars)'}
+                      </span>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Drag-and-Drop Image Upload */}
+          <div className="composer-field">
+            <span className="composer-field__label">Photos (optional, up to 4)</span>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              multiple
+              onChange={handleImageSelect}
+              style={{ display: 'none' }}
+            />
+            <div
+              ref={dropZoneRef}
+              className={`composer-dropzone ${isDragging ? 'is-dragging' : ''} ${
+                images.length >= 4 ? 'is-disabled' : ''
+              }`}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              onClick={() => images.length < 4 && fileInputRef.current?.click()}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if ((e.key === 'Enter' || e.key === ' ') && images.length < 4) {
+                  e.preventDefault();
+                  fileInputRef.current?.click();
+                }
+              }}
+            >
+              <div className="composer-dropzone__inner">
+                {isDragging ? (
+                  <>
+                    <FiUploadCloud size={26} aria-hidden="true" />
+                    <span className="composer-dropzone__text">Drop images here</span>
+                  </>
+                ) : (
+                  <>
+                    <FiImage size={22} aria-hidden="true" />
+                    <span className="composer-dropzone__text">
+                      {images.length >= 4
+                        ? 'Maximum 4 images reached'
+                        : 'Drag & drop photos or click to browse'}
+                    </span>
+                    <span className="composer-dropzone__hint">
+                      JPEG, PNG, GIF, WebP up to 5MB each
+                    </span>
+                  </>
+                )}
+              </div>
+              {images.length > 0 && (
+                <span className="composer-dropzone__count">{images.length}/4</span>
               )}
             </div>
-          )}
 
-          {/* Theme Selector */}
-          <div className="create-post-theme-selector">
-            <span className="create-post-theme-label">Style:</span>
-            <div className="create-post-theme-swatches">
-              {POST_THEMES.map((theme) => (
-                <button
-                  key={theme.id}
-                  type="button"
-                  className={`create-post-theme-swatch ${selectedTheme === theme.id ? 'selected' : ''}`}
-                  style={{ 
-                    background: theme.id === 'none' ? '#f1f5f9' : theme.gradient,
-                    border: theme.id === 'none' ? '2px dashed #cbd5e1' : 'none',
-                  }}
-                  onClick={() => setSelectedTheme(theme.id)}
-                  title={theme.name}
-                  aria-label={`Select ${theme.name} theme`}
-                >
-                  {selectedTheme === theme.id && (
-                    <FiCheck 
-                      size={12} 
-                      style={{ color: theme.id === 'none' ? '#64748b' : theme.textColor }} 
-                    />
-                  )}
-                  {theme.id === 'none' && selectedTheme !== 'none' && (
-                    <FiX size={10} style={{ color: '#64748b' }} />
-                  )}
-                </button>
-              ))}
-            </div>
+            {imagePreviews.length > 0 && (
+              <div className="composer-previews">
+                {imagePreviews.map((preview, index) => (
+                  <div key={index} className="composer-preview-item">
+                    <img src={preview} alt={`Preview ${index + 1}`} />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(index)}
+                      className="composer-preview-remove"
+                      aria-label={`Remove photo ${index + 1}`}
+                    >
+                      <FiX size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Image Previews */}
-          {imagePreviews.length > 0 && (
-            <div className="create-post-images">
-              {imagePreviews.map((preview, index) => (
-                <div key={index} className="create-post-image-item">
-                  <img src={preview} alt={`Preview ${index + 1}`} />
-                  <button
-                    type="button"
-                    onClick={() => removeImage(index)}
-                    className="create-post-image-remove"
-                  >
-                    <FiX size={14} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="create-post-actions">
-            <div className="create-post-action-buttons">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/gif,image/webp"
-                multiple
-                onChange={handleImageSelect}
-                style={{ display: 'none' }}
-              />
-              <button
-                type="button"
-                className="create-post-action-btn"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={images.length >= 4}
-              >
-                <FiImage size={18} />
-                <span>Photo</span>
-              </button>
-              <label className="create-post-action-btn create-post-anonymous-toggle">
-                <input
-                  type="checkbox"
-                  checked={isAnonymous}
-                  onChange={(e) => setIsAnonymous(e.target.checked)}
-                />
-                <FiLock size={18} />
-                <span>Anonymous</span>
-              </label>
-            </div>
+          {/* Dialog Footer */}
+          <div className="dialog-foot">
+            <button
+              type="button"
+              className="btn btn--ghost shell-btn-sm"
+              onClick={closeComposer}
+              disabled={loading}
+            >
+              Cancel
+            </button>
             <button
               type="submit"
-              className="create-post-submit-btn"
+              className="btn btn--gold shell-btn-sm"
               disabled={loading || !title.trim() || !description.trim()}
             >
-              {loading ? 'Posting...' : 'Post'}
-              <FiSend size={16} />
+              <FiSend size={14} aria-hidden="true" />
+              <span>
+                {loading
+                  ? 'Publishing…'
+                  : isAnnouncement
+                  ? 'Publish Announcement'
+                  : 'Publish Post'}
+              </span>
             </button>
           </div>
         </form>
-      )}
-    </div>
+      </dialog>
+    </>
   );
 };
 

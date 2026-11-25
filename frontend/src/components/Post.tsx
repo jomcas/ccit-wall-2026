@@ -1,34 +1,140 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { postService, commentService } from '../services/api';
-import { Post as PostType, Comment as CommentType } from '../types';
-import { FiHeart, FiMessageCircle, FiEdit2, FiTrash2, FiCheck, FiSend, FiX, FiImage, FiUploadCloud } from 'react-icons/fi';
+import {
+  FiHeart,
+  FiMessageCircle,
+  FiShare2,
+  FiEdit2,
+  FiTrash2,
+  FiCheck,
+  FiSend,
+  FiX,
+  FiImage,
+  FiUploadCloud,
+  FiBookmark,
+  FiDownload,
+} from 'react-icons/fi';
 import { FaHeart } from 'react-icons/fa';
+import { postService, commentService } from '../services/api';
+import type { Post as PostType, Comment as CommentType } from '../types';
 import ConfirmDialog from './ConfirmDialog';
 import ImageLightbox from './ImageLightbox';
-import { getThemeById, getPostDisplayMode, POST_THEMES, POSTER_MODE_MAX_LENGTH } from '../config/themes';
+import {
+  getThemeById,
+  getPostDisplayMode,
+  POST_THEMES,
+  POSTER_MODE_MAX_LENGTH,
+} from '../config/themes';
 import { useSession } from '../contexts/SessionContext';
-import '../styles/index.css';
 
 interface PostProps {
   post: PostType;
   onPostDeleted?: () => void;
   onPostUpdated?: (updatedPost: PostType) => void;
+  isHighlighted?: boolean;
 }
 
-const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated }) => {
-  const [comments, setComments] = useState<CommentType[]>([]);
-  const [showComments, setShowComments] = useState(true);
+const CATEGORY_LABELS: Record<string, string> = {
+  'college-activities': 'College Activities',
+  general: 'General',
+  extracurricular: 'Extracurricular',
+};
+
+const QUICK_REACTIONS = ['🔥', '👏', '💡'] as const;
+
+const NON_IMAGE_EXTENSIONS = /\.(pdf|docx?|xlsx?|pptx?|txt|csv|zip|rar|7z|md)(\?.*)?$/i;
+
+function isImageAttachment(url: string): boolean {
+  if (!url) return false;
+  if (url.startsWith('blob:') || url.startsWith('data:image/')) return true;
+  if (NON_IMAGE_EXTENSIONS.test(url)) return false;
+  return true;
+}
+
+function getFileAttachmentMeta(url: string, index: number): { name: string; ext: string } {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    const segments = parsed.pathname.split('/').filter(Boolean);
+    const rawName = decodeURIComponent(segments[segments.length - 1] || `Attachment-${index + 1}`);
+    const cleanName = rawName.includes('?') ? rawName.split('?')[0] : rawName;
+    const extMatch = cleanName.match(/\.([a-z0-9]+)$/i);
+    const ext = extMatch ? extMatch[1].toUpperCase().slice(0, 4) : 'FILE';
+    return { name: cleanName, ext };
+  } catch {
+    return { name: `Attachment-${index + 1}`, ext: 'FILE' };
+  }
+}
+
+function getInitials(name?: string): string {
+  if (!name) return 'U';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'U';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+function normalizeReactions(
+  reactions: PostType['reactions'] | undefined
+): Record<string, string[]> {
+  const normalized: Record<string, string[]> = {};
+  if (!reactions) return normalized;
+
+  if (reactions instanceof Map) {
+    reactions.forEach((userIds, emoji) => {
+      if (Array.isArray(userIds) && userIds.length > 0) {
+        normalized[emoji] = userIds.map((id) => String(id));
+      }
+    });
+    return normalized;
+  }
+
+  Object.entries(reactions).forEach(([emoji, userIds]) => {
+    if (Array.isArray(userIds) && userIds.length > 0) {
+      normalized[emoji] = userIds.map((id) => String(id));
+    }
+  });
+  return normalized;
+}
+
+function formatTimeAgo(date: Date | string): string {
+  const now = new Date();
+  const parsed = new Date(date);
+  const seconds = Math.floor((now.getTime() - parsed.getTime()) / 1000);
+
+  if (Number.isNaN(seconds)) return '';
+  if (seconds < 60) return 'just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+  return parsed.toLocaleDateString();
+}
+
+const PostComponent: React.FC<PostProps> = ({
+  post,
+  onPostDeleted,
+  onPostUpdated,
+  isHighlighted = false,
+}) => {
+  const [comments, setComments] = useState<CommentType[]>(post.comments || []);
+  const [showComments, setShowComments] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [liked, setLiked] = useState(false);
-  const [likes, setLikes] = useState(post.likes?.length);
+  const [likes, setLikes] = useState(post.likes?.length || 0);
+  const [reactions, setReactions] = useState<Record<string, string[]>>(() =>
+    normalizeReactions(post.reactions)
+  );
+  const [copiedShare, setCopiedShare] = useState(false);
+  const shareTimerRef = useRef<number | null>(null);
+
+  // Post edit state
   const [isEditMode, setIsEditMode] = useState(false);
   const [editTitle, setEditTitle] = useState(post.title);
   const [editDescription, setEditDescription] = useState(post.description);
+  const [editTheme, setEditTheme] = useState(post.theme || 'none');
   const [isSaving, setIsSaving] = useState(false);
 
   // Comment-specific state
-  const [commentLikes, setCommentLikes] = useState<{ [key: string]: boolean }>({});
+  const [commentLikes, setCommentLikes] = useState<Record<string, boolean>>({});
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editCommentContent, setEditCommentContent] = useState('');
   const editCommentRef = useRef<HTMLInputElement>(null);
@@ -52,83 +158,144 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
   const dropZoneRef = useRef<HTMLDivElement>(null);
 
   const { user } = useSession();
-  const userId = user?.id || user?._id || '';
+  const userId = user?._id || user?.id || '';
+  const postId = post._id || post.id || '';
+
+  const authorId = post.author?._id || post.author?.id || '';
+  const isPostOwner = Boolean(userId && authorId && userId === authorId);
+  const canDeletePost = isPostOwner || user?.role === 'admin';
+
+  // Separate image attachments from non-image file attachments
+  const { imageAttachments, fileAttachments } = useMemo(() => {
+    const imgs: string[] = [];
+    const files: string[] = [];
+    (post.attachments || []).forEach((url) => {
+      if (isImageAttachment(url)) {
+        imgs.push(url);
+      } else {
+        files.push(url);
+      }
+    });
+    return { imageAttachments: imgs, fileAttachments: files };
+  }, [post.attachments]);
 
   // Theme-related computed values
   const theme = useMemo(() => getThemeById(post.theme), [post.theme]);
   const displayMode = useMemo(
-    () => getPostDisplayMode(post.theme, post.description?.length || 0, (post.attachments?.length || 0) > 0),
+    () =>
+      getPostDisplayMode(
+        post.theme,
+        post.description?.length || 0,
+        (post.attachments?.length || 0) > 0
+      ),
     [post.theme, post.description, post.attachments]
   );
 
-  // Edit mode theme state
-  const [editTheme, setEditTheme] = useState(post.theme || 'none');
+  // Keep likes and reactions in sync with incoming post props / user role switches
+  useEffect(() => {
+    const likesArr = (post.likes || []).map((id) => String(id));
+    setLikes(likesArr.length);
+    setLiked(Boolean(userId && likesArr.includes(userId)));
+    setReactions(normalizeReactions(post.reactions));
+  }, [post, userId]);
 
-  // Format time ago helper
-  const formatTimeAgo = (date: Date | string) => {
-    const now = new Date();
-    const commentDate = new Date(date);
-    const seconds = Math.floor((now.getTime() - commentDate.getTime()) / 1000);
-
-    if (seconds < 60) return 'just now';
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-    if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
-    return commentDate.toLocaleDateString();
-  };
-
-  // Get total image count for edit mode
-  const getTotalEditImageCount = useCallback(() => {
-    return editExistingImages.length + editNewImages.length;
-  }, [editExistingImages.length, editNewImages.length]);
-
-  // Process files for edit mode (shared validation logic)
-  const processEditFiles = useCallback((files: FileList | File[]) => {
-    const newFiles = Array.from(files);
-    const totalFiles = editExistingImages.length + editNewImages.length + newFiles.length;
-
-    console.log('=== processEditFiles Debug ===');
-    console.log('editExistingImages.length:', editExistingImages.length);
-    console.log('editNewImages.length:', editNewImages.length);
-    console.log('newFiles.length:', newFiles.length);
-    console.log('totalFiles:', totalFiles);
-
-    if (totalFiles > 4) {
-      alert(`You can only have up to 4 images. Currently have ${editExistingImages.length + editNewImages.length}, trying to add ${newFiles.length}.`);
-      return;
-    }
-
-    const validFiles: File[] = [];
-    const validPreviews: string[] = [];
-
-    for (const file of newFiles) {
-      console.log('Processing file:', file.name, file.type, file.size);
-      const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-      if (!validTypes.includes(file.type)) {
-        alert(`File "${file.name}" is not a valid image type.`);
-        continue;
+  useEffect(() => {
+    return () => {
+      if (shareTimerRef.current !== null) {
+        window.clearTimeout(shareTimerRef.current);
       }
-      if (file.size > 5 * 1024 * 1024) {
-        alert(`File "${file.name}" is too large (max 5MB).`);
-        continue;
-      }
-      validFiles.push(file);
-      validPreviews.push(URL.createObjectURL(file));
-    }
+    };
+  }, []);
 
-    console.log('Valid files to add:', validFiles.length);
+  const loadComments = useCallback(async () => {
+    if (!postId) return;
+    try {
+      const response = await commentService.getComments(postId);
+      const fetched = (response.data || []) as CommentType[];
+      setComments(fetched);
 
-    if (validFiles.length > 0) {
-      setEditNewImages((prev) => {
-        const updated = [...prev, ...validFiles];
-        console.log('Updated editNewImages:', updated.length, updated);
-        return updated;
+      const likedState: Record<string, boolean> = {};
+      fetched.forEach((comment) => {
+        const commentId = comment._id || comment.id;
+        if (commentId && userId) {
+          likedState[commentId] = (comment.likes || []).map(String).includes(userId);
+        }
       });
-      setEditNewImagePreviews((prev) => [...prev, ...validPreviews]);
+      setCommentLikes(likedState);
+    } catch (error) {
+      console.error('Failed to load comments', error);
     }
-  }, [editExistingImages.length, editNewImages.length]);
+  }, [postId, userId]);
 
-  // Handle file input change in edit mode
+  useEffect(() => {
+    loadComments();
+  }, [loadComments]);
+
+  // Click outside detection to cancel inline comment edit
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        editingCommentId &&
+        editCommentRef.current &&
+        !editCommentRef.current.contains(event.target as Node) &&
+        !(event.target as Element).closest('.comment-item__edit-actions')
+      ) {
+        setEditingCommentId(null);
+        setEditCommentContent('');
+      }
+    };
+
+    if (editingCommentId) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [editingCommentId]);
+
+  // Image edit helpers
+  const getTotalEditImageCount = useCallback(
+    () => editExistingImages.length + editNewImages.length,
+    [editExistingImages.length, editNewImages.length]
+  );
+
+  const processEditFiles = useCallback(
+    (files: FileList | File[]) => {
+      const newFiles = Array.from(files);
+      const totalFiles = editExistingImages.length + editNewImages.length + newFiles.length;
+
+      if (totalFiles > 4) {
+        alert(
+          `You can only have up to 4 images. Currently have ${
+            editExistingImages.length + editNewImages.length
+          }, trying to add ${newFiles.length}.`
+        );
+        return;
+      }
+
+      const validFiles: File[] = [];
+      const validPreviews: string[] = [];
+
+      for (const file of newFiles) {
+        const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (!validTypes.includes(file.type)) {
+          alert(`File "${file.name}" is not a valid image type.`);
+          continue;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          alert(`File "${file.name}" is too large (max 5MB).`);
+          continue;
+        }
+        validFiles.push(file);
+        validPreviews.push(URL.createObjectURL(file));
+      }
+
+      if (validFiles.length > 0) {
+        setEditNewImages((prev) => [...prev, ...validFiles]);
+        setEditNewImagePreviews((prev) => [...prev, ...validPreviews]);
+      }
+    },
+    [editExistingImages.length, editNewImages.length]
+  );
+
   const handleEditImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
@@ -138,26 +305,24 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
     }
   };
 
-  // Remove existing image in edit mode
   const removeExistingImage = (index: number) => {
     setEditExistingImages((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Remove new image in edit mode
   const removeNewImage = (index: number) => {
     URL.revokeObjectURL(editNewImagePreviews[index]);
     setEditNewImages((prev) => prev.filter((_, i) => i !== index));
     setEditNewImagePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Drag and drop handlers for edit mode
-  const handleDragEnter = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (getTotalEditImageCount() < 4) {
-      setIsDragging(true);
-    }
-  }, [getTotalEditImageCount]);
+  const handleDragEnter = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (getTotalEditImageCount() < 4) setIsDragging(true);
+    },
+    [getTotalEditImageCount]
+  );
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -172,28 +337,30 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
     e.stopPropagation();
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
 
-    if (getTotalEditImageCount() >= 4) {
-      alert('You can only have up to 4 images');
-      return;
-    }
-
-    const files = e.dataTransfer.files;
-    if (files && files.length > 0) {
-      const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
-      if (imageFiles.length > 0) {
-        processEditFiles(imageFiles);
-      } else {
-        alert('Please drop image files only');
+      if (getTotalEditImageCount() >= 4) {
+        alert('You can only have up to 4 images');
+        return;
       }
-    }
-  }, [getTotalEditImageCount, processEditFiles]);
 
-  // Initialize edit mode with current images
+      const files = e.dataTransfer.files;
+      if (files && files.length > 0) {
+        const imageFiles = Array.from(files).filter((file) => file.type.startsWith('image/'));
+        if (imageFiles.length > 0) {
+          processEditFiles(imageFiles);
+        } else {
+          alert('Please drop image files only');
+        }
+      }
+    },
+    [getTotalEditImageCount, processEditFiles]
+  );
+
   const enterEditMode = () => {
     setIsEditMode(true);
     setEditTitle(post.title);
@@ -204,12 +371,10 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
     setEditTheme(post.theme || 'none');
   };
 
-  // Cancel edit mode and cleanup
   const cancelEditMode = () => {
     setIsEditMode(false);
     setEditTitle(post.title);
     setEditDescription(post.description);
-    // Cleanup preview URLs
     editNewImagePreviews.forEach((url) => URL.revokeObjectURL(url));
     setEditExistingImages([]);
     setEditNewImages([]);
@@ -217,94 +382,115 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
     setEditTheme(post.theme || 'none');
   };
 
-  useEffect(() => {
-    if (userId) {
-      setLiked(post.likes.includes(userId));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [post]);
-
-  useEffect(() => {
-    loadComments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [post._id, post.id]);
-
-  // Click outside detection to cancel comment edit
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        editingCommentId &&
-        editCommentRef.current &&
-        !editCommentRef.current.contains(event.target as Node) &&
-        !(event.target as Element).closest('.comment-edit-actions')
-      ) {
-        // Cancel edit mode inline
-        setEditingCommentId(null);
-        setEditCommentContent('');
-      }
-    };
-
-    if (editingCommentId) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [editingCommentId]);
-
-  const loadComments = async () => {
-    const postId = post._id || post.id;
-    if (!postId) {
-      console.error('Post ID is undefined. Cannot load comments.');
-      return;
-    }
-    try {
-      const response = await commentService.getComments(postId);
-      setComments(response.data);
-
-      // Initialize comment likes state
-      const likedState: { [key: string]: boolean } = {};
-      response.data.forEach((comment: CommentType) => {
-        const commentId = comment._id || comment.id;
-        if (commentId && userId) {
-          likedState[commentId] = comment.likes?.includes(userId) || false;
-        }
-      });
-      setCommentLikes(likedState);
-    } catch (error) {
-      console.error('Failed to load comments', error);
-    }
-  };
-
+  // Engagement handlers
   const handleLike = async () => {
+    if (!postId || !userId) return;
+    const nextLiked = !liked;
+    setLiked(nextLiked);
+    setLikes((prev) => Math.max(0, prev + (nextLiked ? 1 : -1)));
+
     try {
-      const postId = post._id || post.id;
-      if (!postId) throw new Error('Post ID is missing');
-      await postService.likePost(postId);
-      setLiked(!liked);
-      setLikes(liked ? likes - 1 : likes + 1);
+      const response = await postService.likePost(postId);
+      const serverPost = response.data?.post;
+      const nextLikesList = Array.isArray(serverPost?.likes)
+        ? serverPost.likes.map(String)
+        : nextLiked
+        ? [...(post.likes || []).map(String), userId]
+        : (post.likes || []).map(String).filter((id) => id !== userId);
+
+      if (onPostUpdated) {
+        onPostUpdated({
+          ...post,
+          likes: nextLikesList,
+        });
+      } else {
+        window.dispatchEvent(new CustomEvent('ccit:posts-updated'));
+      }
     } catch (error) {
+      // Roll back optimistic state
+      setLiked(!nextLiked);
+      setLikes((prev) => Math.max(0, prev + (nextLiked ? -1 : 1)));
       console.error('Failed to like post', error);
     }
   };
 
-  const handleAddComment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newComment.trim()) return;
+  const handleReaction = async (emoji: string) => {
+    if (!postId || !userId) return;
+
+    const previousReactions = reactions;
+    const optimistic: Record<string, string[]> = {};
+    Object.entries(reactions).forEach(([key, ids]) => {
+      optimistic[key] = [...ids];
+    });
+    const currentList = optimistic[emoji] || [];
+    if (currentList.includes(userId)) {
+      const remaining = currentList.filter((id) => id !== userId);
+      if (remaining.length > 0) {
+        optimistic[emoji] = remaining;
+      } else {
+        delete optimistic[emoji];
+      }
+    } else {
+      optimistic[emoji] = [...currentList, userId];
+    }
+
+    setReactions(optimistic);
 
     try {
-      const postId = post._id || post.id;
-      if (!postId) {
-        throw new Error('Post ID is undefined');
+      const response = await postService.addReaction(postId, emoji);
+      const serverReactions = response.data?.post?.reactions;
+      const resolved = serverReactions ? normalizeReactions(serverReactions) : optimistic;
+      setReactions(resolved);
+      if (onPostUpdated) {
+        onPostUpdated({
+          ...post,
+          reactions: resolved,
+        });
       }
-      await commentService.createComment(postId, newComment);
-      setNewComment('');
-      await loadComments();
-      // Ensure new comment is visible (it will be at the end, so we need at least 1 visible)
-      setVisibleCommentsCount(prev => Math.max(prev, 3));
     } catch (error) {
-      console.error('Failed to add comment', error);
+      setReactions(previousReactions);
+      console.error('Failed to toggle reaction', error);
+    }
+  };
+
+  const handleShare = async () => {
+    if (!postId) return;
+    const shareUrl = `${window.location.origin}/feed?post=${encodeURIComponent(postId)}`;
+
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(shareUrl);
+      } else {
+        const tempInput = document.createElement('textarea');
+        tempInput.value = shareUrl;
+        tempInput.style.position = 'fixed';
+        tempInput.style.opacity = '0';
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempInput);
+      }
+
+      setCopiedShare(true);
+      if (shareTimerRef.current !== null) {
+        window.clearTimeout(shareTimerRef.current);
+      }
+      shareTimerRef.current = window.setTimeout(() => setCopiedShare(false), 2200);
+    } catch (error) {
+      console.error('Failed to copy post link', error);
+    }
+
+    try {
+      const response = await postService.sharePost(postId);
+      const serverShares = response.data?.post?.shares;
+      if (onPostUpdated && Array.isArray(serverShares)) {
+        onPostUpdated({
+          ...post,
+          shares: serverShares.map(String),
+        });
+      }
+    } catch (error) {
+      console.error('Failed to record post share', error);
     }
   };
 
@@ -316,85 +502,45 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
 
     setIsSaving(true);
     try {
-      const postId = post._id || post.id;
       if (!postId) throw new Error('Post ID is missing');
 
-      // Debug: Check editNewImages state before creating FormData
-      console.log('=== editNewImages State Debug ===');
-      console.log('editNewImages:', editNewImages);
-      console.log('editNewImages.length:', editNewImages.length);
-      editNewImages.forEach((img, i) => {
-        console.log(`Image ${i}:`, img, 'instanceof File:', img instanceof File, 'name:', img?.name, 'size:', img?.size);
-      });
-
-      // Use FormData to handle image updates
       const formData = new FormData();
-      formData.append('title', editTitle);
-      formData.append('description', editDescription);
+      formData.append('title', editTitle.trim());
+      formData.append('description', editDescription.trim());
       formData.append('theme', editTheme);
-      
-      // Send existing images that should be kept
       formData.append('existingImages', JSON.stringify(editExistingImages));
-      
-      // Append new images - use a for loop to ensure proper iteration
+      if (post.isAnnouncement !== undefined) {
+        formData.append('isAnnouncement', String(post.isAnnouncement));
+      }
+
       for (let i = 0; i < editNewImages.length; i++) {
         const image = editNewImages[i];
         if (image instanceof File) {
-          console.log(`Appending image ${i}:`, image.name, image.size, image.type);
           formData.append('images', image, image.name);
-        } else {
-          console.error(`Image ${i} is not a valid File:`, image);
         }
       }
-
-      // Debug: Log FormData contents
-      console.log('=== FormData Debug ===');
-      console.log('editExistingImages:', editExistingImages);
-      console.log('editNewImages count:', editNewImages.length);
-      
-      // Count files in FormData explicitly
-      let formDataFileCount = 0;
-      const formDataFiles: string[] = [];
-      for (const [key, value] of formData.entries()) {
-        if (value instanceof File) {
-          formDataFileCount++;
-          formDataFiles.push(`${key}: ${value.name} (${value.size} bytes)`);
-          console.log(`FormData entry: ${key} = File(${value.name}, ${value.size} bytes)`);
-        } else {
-          console.log(`FormData entry: ${key} =`, value);
-        }
-      }
-      console.log(`=== TOTAL FILES IN FORMDATA: ${formDataFileCount} ===`);
-      console.log('Files:', formDataFiles);
-      
-      // Also use getAll to check for multiple values under same key
-      const allImages = formData.getAll('images');
-      console.log(`formData.getAll('images') count: ${allImages.length}`);
-      allImages.forEach((img, i) => {
-        if (img instanceof File) {
-          console.log(`  getAll image ${i}: ${img.name} (${img.size} bytes)`);
-        }
-      });
 
       const updatedResponse = await postService.updatePost(postId, formData);
-
-      // Cleanup preview URLs
       editNewImagePreviews.forEach((url) => URL.revokeObjectURL(url));
 
-      // Merge the updated data with existing post to preserve all fields
-      const updatedPost = {
+      const serverPost = updatedResponse.data?.post || {};
+      const updatedPost: PostType = {
         ...post,
-        ...updatedResponse.data.post,
-        title: editTitle,
-        description: editDescription,
+        ...serverPost,
+        author: post.author,
+        title: editTitle.trim(),
+        description: editDescription.trim(),
         theme: editTheme,
+        attachments: Array.isArray(serverPost.attachments)
+          ? serverPost.attachments
+          : editExistingImages,
       };
 
       setIsEditMode(false);
       setEditNewImages([]);
       setEditNewImagePreviews([]);
       setEditExistingImages([]);
-      
+
       if (onPostUpdated) {
         onPostUpdated(updatedPost);
       }
@@ -408,7 +554,6 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
 
   const handleDeletePost = async () => {
     try {
-      const postId = post._id || post.id;
       if (!postId) throw new Error('Post ID is missing');
       await postService.deletePost(postId);
       setDeletePostDialogOpen(false);
@@ -418,40 +563,47 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
     }
   };
 
-  // ============================================
-  // COMMENT HANDLERS
-  // ============================================
+  // Comment handlers
+  const handleAddComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim() || !postId) return;
 
-  const handleLikeComment = useCallback(async (commentId: string) => {
-    if (!userId) return;
-    
     try {
-      await commentService.likeComment(commentId);
-
-      // Toggle liked state
-      const wasLiked = commentLikes[commentId];
-      setCommentLikes((prev) => ({
-        ...prev,
-        [commentId]: !prev[commentId],
-      }));
-
-      // Update likes array in comments
-      setComments((prev) =>
-        prev.map((comment) => {
-          const id = comment._id || comment.id;
-          if (id === commentId) {
-            const newLikes = wasLiked
-              ? comment.likes.filter((likeId) => likeId !== userId)
-              : [...comment.likes, userId];
-            return { ...comment, likes: newLikes };
-          }
-          return comment;
-        })
-      );
+      await commentService.createComment(postId, newComment.trim());
+      setNewComment('');
+      await loadComments();
+      setVisibleCommentsCount((prev) => Math.max(prev, 3));
     } catch (error) {
-      console.error('Failed to like comment', error);
+      console.error('Failed to add comment', error);
     }
-  }, [commentLikes, userId]);
+  };
+
+  const handleLikeComment = useCallback(
+    async (commentId: string) => {
+      if (!userId) return;
+
+      try {
+        await commentService.likeComment(commentId);
+        const wasLiked = commentLikes[commentId];
+        setCommentLikes((prev) => ({ ...prev, [commentId]: !prev[commentId] }));
+        setComments((prev) =>
+          prev.map((comment) => {
+            const id = comment._id || comment.id;
+            if (id === commentId) {
+              const nextLikes = wasLiked
+                ? comment.likes.filter((likeId) => String(likeId) !== userId)
+                : [...comment.likes, userId];
+              return { ...comment, likes: nextLikes };
+            }
+            return comment;
+          })
+        );
+      } catch (error) {
+        console.error('Failed to like comment', error);
+      }
+    },
+    [commentLikes, userId]
+  );
 
   const handleDeleteComment = useCallback(async (commentId: string) => {
     try {
@@ -477,44 +629,43 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
     }
   }, []);
 
-  const handleSaveCommentEdit = useCallback(async (commentId: string) => {
-    if (!editCommentContent.trim()) {
-      alert('Comment cannot be empty');
-      return;
-    }
+  const handleSaveCommentEdit = useCallback(
+    async (commentId: string) => {
+      if (!editCommentContent.trim()) {
+        alert('Comment cannot be empty');
+        return;
+      }
 
-    try {
-      await commentService.updateComment(commentId, editCommentContent);
-
-      // Update local state
-      setComments((prev) =>
-        prev.map((comment) => {
-          const id = comment._id || comment.id;
-          if (id === commentId) {
-            return {
-              ...comment,
-              content: editCommentContent,
-              updatedAt: new Date(),
-            };
-          }
-          return comment;
-        })
-      );
-
-      setEditingCommentId(null);
-      setEditCommentContent('');
-    } catch (error) {
-      console.error('Failed to update comment', error);
-      alert('Failed to update comment');
-    }
-  }, [editCommentContent]);
+      try {
+        await commentService.updateComment(commentId, editCommentContent.trim());
+        setComments((prev) =>
+          prev.map((comment) => {
+            const id = comment._id || comment.id;
+            if (id === commentId) {
+              return {
+                ...comment,
+                content: editCommentContent.trim(),
+                updatedAt: new Date(),
+              };
+            }
+            return comment;
+          })
+        );
+        setEditingCommentId(null);
+        setEditCommentContent('');
+      } catch (error) {
+        console.error('Failed to update comment', error);
+        alert('Failed to update comment');
+      }
+    },
+    [editCommentContent]
+  );
 
   const handleCancelCommentEdit = useCallback(() => {
     setEditingCommentId(null);
     setEditCommentContent('');
   }, []);
 
-  // Handle Enter key to save comment edit
   const handleEditKeyDown = (e: React.KeyboardEvent, commentId: string) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -524,38 +675,56 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
     }
   };
 
+  // Presentation helpers
+  const categoryLabel = CATEGORY_LABELS[post.category] || 'General';
+  const authorRole = post.author?.role || 'student';
+  const rolePillClass =
+    authorRole === 'teacher'
+      ? 'role-pill--teacher'
+      : authorRole === 'admin'
+      ? 'role-pill--admin'
+      : 'role-pill--student';
+  const authorAvatarClass = authorRole === 'student' ? 'shell-avatar--gold' : '';
+  const createdIso = post.createdAt ? new Date(post.createdAt).toISOString() : undefined;
+
+  const existingReactionEntries = Object.entries(reactions).filter(
+    ([, userIds]) => userIds.length > 0
+  );
+  const availableQuickReactions = QUICK_REACTIONS.filter((emoji) => !reactions[emoji]?.length);
+
   return (
-    <div className="card" style={{ marginBottom: '20px', transition: 'all 0.2s ease' }}>
+    <article
+      id={postId ? `post-${postId}` : undefined}
+      className={`paper post-card ${
+        post.isAnnouncement ? 'paper--taped post-card--announcement' : ''
+      } ${isHighlighted ? 'post-card--highlighted' : ''}`}
+    >
       {isEditMode ? (
-        <div>
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '14px' }}>Title</label>
+        <div className="post-edit-form">
+          <div className="composer-field">
+            <label htmlFor={`edit-title-${postId}`}>Title</label>
             <input
+              id={`edit-title-${postId}`}
               type="text"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
-              className="input-modern"
-              style={{ width: '100%' }}
+              className="composer-input"
             />
           </div>
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '14px' }}>Description</label>
+
+          <div className="composer-field">
+            <label htmlFor={`edit-desc-${postId}`}>Description</label>
             <textarea
+              id={`edit-desc-${postId}`}
               value={editDescription}
               onChange={(e) => setEditDescription(e.target.value)}
-              className="input-modern"
-              style={{
-                width: '100%',
-                minHeight: '120px',
-                fontFamily: 'inherit',
-                resize: 'vertical',
-              }}
+              className="composer-textarea"
             />
           </div>
 
           {/* Image Editing Section */}
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '14px' }}>Images</label>
+          <div className="composer-field">
+            <span className="composer-field__label">Images (up to 4)</span>
             <input
               ref={fileInputRef}
               type="file"
@@ -564,567 +733,585 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
               onChange={handleEditImageSelect}
               style={{ display: 'none' }}
             />
-            
-            {/* Drag and Drop Zone */}
             <div
               ref={dropZoneRef}
-              className={`image-drop-zone ${isDragging ? 'dragging' : ''} ${getTotalEditImageCount() >= 4 ? 'disabled' : ''}`}
+              className={`composer-dropzone ${isDragging ? 'is-dragging' : ''} ${
+                getTotalEditImageCount() >= 4 ? 'is-disabled' : ''
+              }`}
               onDragEnter={handleDragEnter}
               onDragLeave={handleDragLeave}
               onDragOver={handleDragOver}
               onDrop={handleDrop}
               onClick={() => getTotalEditImageCount() < 4 && fileInputRef.current?.click()}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if ((e.key === 'Enter' || e.key === ' ') && getTotalEditImageCount() < 4) {
+                  e.preventDefault();
+                  fileInputRef.current?.click();
+                }
+              }}
             >
-              <div className="drop-zone-content">
+              <div className="composer-dropzone__inner">
                 {isDragging ? (
                   <>
-                    <FiUploadCloud size={32} className="drop-zone-icon active" />
-                    <span className="drop-zone-text">Drop images here</span>
+                    <FiUploadCloud size={26} aria-hidden="true" />
+                    <span className="composer-dropzone__text">Drop images here</span>
                   </>
                 ) : (
                   <>
-                    <FiImage size={24} className="drop-zone-icon" />
-                    <span className="drop-zone-text">
-                      {getTotalEditImageCount() >= 4 ? 'Maximum 4 images reached' : 'Drag & drop images or click to browse'}
+                    <FiImage size={22} aria-hidden="true" />
+                    <span className="composer-dropzone__text">
+                      {getTotalEditImageCount() >= 4
+                        ? 'Maximum 4 images reached'
+                        : 'Drag & drop images or click to browse'}
                     </span>
-                    <span className="drop-zone-hint">
+                    <span className="composer-dropzone__hint">
                       JPEG, PNG, GIF, WebP up to 5MB each
                     </span>
                   </>
                 )}
               </div>
-              {getTotalEditImageCount() > 0 && getTotalEditImageCount() < 4 && (
-                <span className="image-count-badge">{getTotalEditImageCount()}/4</span>
+              {getTotalEditImageCount() > 0 && (
+                <span className="composer-dropzone__count">{getTotalEditImageCount()}/4</span>
               )}
             </div>
 
-            {/* Existing Images Preview */}
             {(editExistingImages.length > 0 || editNewImagePreviews.length > 0) && (
-              <div className="image-preview-grid" style={{ marginTop: '12px' }}>
-                {/* Show existing images */}
-                {editExistingImages.map((imageUrl, index) => (
-                  <div key={`existing-${index}`} className="image-preview-item">
-                    <img src={imageUrl} alt={`Existing ${index + 1}`} />
-                    <button
-                      type="button"
-                      onClick={() => removeExistingImage(index)}
-                      className="image-remove-btn"
-                      aria-label="Remove image"
-                    >
-                      <FiX size={14} />
-                    </button>
-                  </div>
-                ))}
-                {/* Show new images */}
+              <div className="composer-previews">
+                {editExistingImages.map((attachmentUrl, index) => {
+                  const isImg = isImageAttachment(attachmentUrl);
+                  const meta = isImg ? null : getFileAttachmentMeta(attachmentUrl, index);
+                  return (
+                    <div key={`existing-${index}`} className="composer-preview-item">
+                      {isImg ? (
+                        <img src={attachmentUrl} alt={`Existing ${index + 1}`} />
+                      ) : (
+                        <div className="composer-preview-file">
+                          <span>{meta?.ext}</span>
+                          <span className="composer-preview-file__name">{meta?.name}</span>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeExistingImage(index)}
+                        className="composer-preview-remove"
+                        aria-label="Remove existing attachment"
+                      >
+                        <FiX size={13} />
+                      </button>
+                    </div>
+                  );
+                })}
                 {editNewImagePreviews.map((preview, index) => (
-                  <div key={`new-${index}`} className="image-preview-item">
+                  <div key={`new-${index}`} className="composer-preview-item">
                     <img src={preview} alt={`New ${index + 1}`} />
                     <button
                       type="button"
                       onClick={() => removeNewImage(index)}
-                      className="image-remove-btn"
-                      aria-label="Remove image"
+                      className="composer-preview-remove"
+                      aria-label="Remove new image"
                     >
-                      <FiX size={14} />
+                      <FiX size={13} />
                     </button>
-                    <span className="image-new-badge">New</span>
+                    <span className="composer-preview-new">New</span>
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          {/* Theme Selector */}
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '14px' }}>
-              Post Theme
-            </label>
-            <div className="theme-selector">
+          {/* Theme Swatch Picker */}
+          <div className="composer-field">
+            <span className="composer-field__label">Post style</span>
+            <div className="composer-swatches">
               {POST_THEMES.map((t) => (
                 <button
                   key={t.id}
                   type="button"
-                  className={`theme-swatch ${editTheme === t.id ? 'selected' : ''}`}
-                  style={{
-                    background: t.id === 'none' ? '#ffffff' : t.gradient,
-                    border: t.id === 'none' ? '2px dashed var(--border-color)' : 'none',
-                  }}
+                  className={`composer-swatch ${t.id === 'none' ? 'composer-swatch--none' : ''} ${
+                    editTheme === t.id ? 'selected' : ''
+                  }`}
+                  style={t.id === 'none' ? undefined : { background: t.gradient }}
                   onClick={() => setEditTheme(t.id)}
                   title={t.name}
                   aria-label={`Select ${t.name} theme`}
-                />
+                >
+                  {editTheme === t.id && (
+                    <FiCheck
+                      size={13}
+                      style={{ color: t.id === 'none' ? 'var(--ink-secondary)' : t.textColor }}
+                    />
+                  )}
+                </button>
               ))}
             </div>
             {editTheme !== 'none' && (
-              <p className="theme-hint" style={{ marginTop: '8px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-                {editDescription.length <= POSTER_MODE_MAX_LENGTH && (editExistingImages.length + editNewImages.length) === 0
-                  ? 'Poster mode: Full gradient background'
-                  : 'Banner mode: Gradient header'}
-              </p>
+              <span className="composer-hint">
+                {editDescription.length <= POSTER_MODE_MAX_LENGTH && getTotalEditImageCount() === 0
+                  ? 'Framed poster card inside paper'
+                  : 'Framed gradient title banner inside paper'}
+              </span>
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div className="post-edit-form__foot">
             <button
-              onClick={handleUpdatePost}
-              disabled={isSaving}
-              className="button button-primary"
-            >
-              <FiCheck style={{ marginRight: '6px' }} />
-              {isSaving ? 'Saving...' : 'Save Changes'}
-            </button>
-            <button
+              type="button"
               onClick={cancelEditMode}
-              className="button btn-ghost"
+              className="btn btn--ghost shell-btn-sm"
               disabled={isSaving}
             >
               Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleUpdatePost}
+              disabled={isSaving}
+              className="btn btn--gold shell-btn-sm"
+            >
+              <FiCheck size={14} aria-hidden="true" />
+              <span>{isSaving ? 'Saving…' : 'Save changes'}</span>
             </button>
           </div>
         </div>
       ) : (
         <>
-          {/* Poster Mode: Full gradient background with centered content */}
-          {displayMode === 'poster' && (
-            <div 
-              className="post-themed-poster"
-              style={{ background: theme.gradient }}
-            >
-              {/* Edit/Delete buttons - positioned top right */}
-              {(userId === post.author?.id || userId === post.author?._id) && (
-                <div className="post-actions post-actions-themed" style={{ position: 'absolute', top: '12px', right: '12px' }}>
-                  <button
-                    onClick={enterEditMode}
-                    className="btn-post-action btn-post-action-themed"
-                    title="Edit post"
-                    style={{ color: theme.textColor }}
-                  >
-                    <FiEdit2 size={16} />
-                  </button>
-                  <button
-                    onClick={() => setDeletePostDialogOpen(true)}
-                    className="btn-post-action btn-post-action-themed btn-post-delete"
-                    title="Delete post"
-                    style={{ color: theme.textColor }}
-                  >
-                    <FiTrash2 size={16} />
-                  </button>
-                </div>
-              )}
-
-              {/* Author Header on Poster - Avatar + Name/Date */}
-              <div className="post-header-modern" style={{ marginBottom: '16px', justifyContent: 'center' }}>
-                {post.isAnonymous ? (
-                  <div className="post-avatar-placeholder-small" style={{ background: 'rgba(255,255,255,0.3)' }}>?</div>
-                ) : post.author?.profilePicture ? (
-                  <img
-                    src={post.author.profilePicture}
-                    alt={post.author.name}
-                    className="post-avatar-small"
-                    style={{ border: '2px solid rgba(255,255,255,0.5)' }}
-                  />
-                ) : (
-                  <div className="post-avatar-placeholder-small" style={{ background: 'rgba(255,255,255,0.3)' }}>
-                    {post.author?.name?.charAt(0) || 'U'}
-                  </div>
-                )}
-                <div className="post-meta-info" style={{ alignItems: 'flex-start' }}>
-                  {post.isAnonymous ? (
-                    <span className="post-author-name" style={{ color: theme.textColor }}>Anonymous</span>
-                  ) : (
-                    <Link
-                      to={`/user/${post.author?._id || post.author?.id}`}
-                      className="post-author-name"
-                      style={{ color: theme.textColor }}
-                    >
-                      {post.author?.name}
-                    </Link>
-                  )}
-                  <span className="post-date" style={{ color: theme.secondaryTextColor || theme.textColor, opacity: 0.85 }}>
-                    {new Date(post.createdAt).toLocaleDateString()}
-                  </span>
-                </div>
-              </div>
-
-              {/* Title (optional in poster mode - hidden if same as description) */}
-              {post.title && post.title !== post.description && (
-                <h3 
-                  className="post-poster-title"
-                  style={{ 
-                    color: theme.textColor, 
-                    fontSize: '1.25rem',
-                    marginBottom: '12px',
-                    fontWeight: '600',
-                  }}
-                >
-                  {post.title}
-                </h3>
-              )}
-
-              {/* Main content - centered large text */}
-              <p 
-                className="post-poster-content"
-                style={{ 
-                  color: theme.textColor,
-                  fontSize: post.description.length < 100 ? '1.5rem' : '1.25rem',
-                  lineHeight: '1.5',
-                  fontWeight: '500',
-                  maxWidth: '100%',
-                  wordBreak: 'break-word',
-                }}
-              >
-                {post.description}
-              </p>
+          {/* Pinned Faculty Announcement Top Banner */}
+          {post.isAnnouncement && (
+            <div className="post-pinned-banner">
+              <span className="post-pinned-banner__label">
+                <FiBookmark size={13} aria-hidden="true" />
+                <span>Pinned Faculty Announcement</span>
+              </span>
+              <span className="post-pinned-banner__cat">{categoryLabel}</span>
             </div>
           )}
 
-          {/* Banner Mode: Gradient header with title, normal content below */}
-          {displayMode === 'banner' && (
-            <>
-              {/* Gradient Banner Header */}
-              <div 
-                className="post-themed-banner"
-                style={{ background: theme.gradient }}
-              >
-                {/* Edit/Delete buttons */}
-                {(userId === post.author?.id || userId === post.author?._id) && (
-                  <div className="post-actions post-actions-themed" style={{ position: 'absolute', top: '12px', right: '12px' }}>
-                    <button
-                      onClick={enterEditMode}
-                      className="btn-post-action btn-post-action-themed"
-                      title="Edit post"
-                      style={{ color: theme.textColor }}
-                    >
-                      <FiEdit2 size={16} />
-                    </button>
-                    <button
-                      onClick={() => setDeletePostDialogOpen(true)}
-                      className="btn-post-action btn-post-action-themed btn-post-delete"
-                      title="Delete post"
-                      style={{ color: theme.textColor }}
-                    >
-                      <FiTrash2 size={16} />
-                    </button>
-                  </div>
-                )}
+          {/* Unified Paper Card Header */}
+          <div className="post-head">
+            {post.isAnonymous ? (
+              <span className="shell-avatar shell-avatar--anon" aria-hidden="true">
+                ?
+              </span>
+            ) : post.author?.profilePicture ? (
+              <img
+                src={post.author.profilePicture}
+                alt={post.author.name}
+                className="shell-avatar"
+              />
+            ) : (
+              <span className={`shell-avatar ${authorAvatarClass}`} aria-hidden="true">
+                {getInitials(post.author?.name)}
+              </span>
+            )}
 
-                {/* Author Header on Banner - Avatar + Name/Date */}
-                <div className="post-header-modern" style={{ marginBottom: '12px' }}>
-                  {post.isAnonymous ? (
-                    <div className="post-avatar-placeholder-small" style={{ background: 'rgba(255,255,255,0.3)' }}>?</div>
-                  ) : post.author?.profilePicture ? (
-                    <img
-                      src={post.author.profilePicture}
-                      alt={post.author.name}
-                      className="post-avatar-small"
-                      style={{ border: '2px solid rgba(255,255,255,0.5)' }}
-                    />
-                  ) : (
-                    <div className="post-avatar-placeholder-small" style={{ background: 'rgba(255,255,255,0.3)' }}>
-                      {post.author?.name?.charAt(0) || 'U'}
-                    </div>
-                  )}
-                  <div className="post-meta-info">
-                    {post.isAnonymous ? (
-                      <span className="post-author-name" style={{ color: theme.textColor }}>Anonymous</span>
-                    ) : (
-                      <Link
-                        to={`/user/${post.author?._id || post.author?.id}`}
-                        className="post-author-name"
-                        style={{ color: theme.textColor }}
-                      >
-                        {post.author?.name}
-                      </Link>
-                    )}
-                    <span className="post-date" style={{ color: theme.secondaryTextColor || theme.textColor, opacity: 0.85 }}>
-                      {new Date(post.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Title on Banner */}
-                <h3 style={{ color: theme.textColor, marginBottom: '0' }}>{post.title}</h3>
-              </div>
-
-              {/* Normal Content Area */}
-              <div className="post-banner-content" style={{ padding: '16px 0 0 0' }}>
-                <p className="post-body">{post.description}</p>
-
-                {/* Image Attachments */}
-                {post.attachments && post.attachments.length > 0 && (
-                  <div className={`post-images post-images-${Math.min(post.attachments.length, 4)}`}>
-                    {post.attachments.slice(0, 4).map((imageUrl, index) => (
-                      <div key={index} className="post-image-item">
-                        <img
-                          src={imageUrl}
-                          alt={`Attachment ${index + 1}`}
-                          loading="lazy"
-                          onClick={() => {
-                            setLightboxIndex(index);
-                            setLightboxOpen(true);
-                          }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-
-          {/* Normal Mode: Standard post layout */}
-          {displayMode === 'normal' && (
-            <>
-              {/* Modern Header: Avatar + Name/Date */}
-              <div className="post-header-modern">
-                {/* Author Avatar */}
+            <div className="post-head__meta">
+              <div className="post-head__author-line">
                 {post.isAnonymous ? (
-                  <div className="post-avatar-placeholder-small">?</div>
-                ) : post.author?.profilePicture ? (
-                  <img
-                    src={post.author.profilePicture}
-                    alt={post.author.name}
-                    className="post-avatar-small"
-                  />
+                  <span className="post-author-anon">Anonymous Student</span>
                 ) : (
-                  <div className="post-avatar-placeholder-small">
-                    {post.author?.name?.charAt(0) || 'U'}
-                  </div>
-                )}
-
-                {/* Author Name + Date */}
-                <div className="post-meta-info">
-                  {post.isAnonymous ? (
-                    <span className="post-author-name">Anonymous</span>
-                  ) : (
+                  <>
                     <Link
                       to={`/user/${post.author?._id || post.author?.id}`}
-                      className="post-author-name"
+                      className="post-author-link"
                     >
-                      {post.author?.name}
+                      {post.author?.name || 'Campus Member'}
                     </Link>
-                  )}
-                  <span className="post-date">{new Date(post.createdAt).toLocaleDateString()}</span>
-                </div>
-
-                {/* Edit/Delete Actions */}
-                {(userId === post.author?.id || userId === post.author?._id) && (
-                  <div className="post-header-actions">
-                    <button
-                      onClick={enterEditMode}
-                      className="btn-post-action"
-                      title="Edit post"
-                    >
-                      <FiEdit2 size={16} />
-                    </button>
-                    <button
-                      onClick={() => setDeletePostDialogOpen(true)}
-                      className="btn-post-action btn-post-delete"
-                      title="Delete post"
-                    >
-                      <FiTrash2 size={16} />
-                    </button>
-                  </div>
+                    <span className={`role-pill ${rolePillClass}`}>{authorRole}</span>
+                  </>
                 )}
               </div>
+              <time className="post-time" dateTime={createdIso}>
+                {formatTimeAgo(post.createdAt)}
+              </time>
+            </div>
 
-              {/* Post Title */}
-              {post.title && (
-                <h3 className="post-title">{post.title}</h3>
+            <div className="post-head__right">
+              {!post.isAnnouncement && (
+                <span className="stamp stamp--neutral">{categoryLabel}</span>
               )}
 
-              {/* Post Body */}
-              <p className="post-body">{post.description}</p>
-
-              {/* Image Attachments */}
-              {post.attachments && post.attachments.length > 0 && (
-                <div className={`post-images post-images-${Math.min(post.attachments.length, 4)}`}>
-                  {post.attachments.slice(0, 4).map((imageUrl, index) => (
-                    <div key={index} className="post-image-item">
-                      <img
-                        src={imageUrl}
-                        alt={`Attachment ${index + 1}`}
-                        loading="lazy"
-                        onClick={() => {
-                          setLightboxIndex(index);
-                          setLightboxOpen(true);
-                        }}
-                      />
-                    </div>
-                  ))}
+              {(isPostOwner || canDeletePost) && (
+                <div className="post-owner-actions">
+                  {isPostOwner && (
+                    <button
+                      type="button"
+                      onClick={enterEditMode}
+                      className="post-icon-btn"
+                      title="Edit post"
+                      aria-label="Edit post"
+                    >
+                      <FiEdit2 size={15} />
+                    </button>
+                  )}
+                  {canDeletePost && (
+                    <button
+                      type="button"
+                      onClick={() => setDeletePostDialogOpen(true)}
+                      className="post-icon-btn post-icon-btn--danger"
+                      title="Delete post"
+                      aria-label="Delete post"
+                    >
+                      <FiTrash2 size={15} />
+                    </button>
+                  )}
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Content: Paper-Framed Poster, Paper-Framed Banner, or Standard */}
+          {displayMode === 'poster' ? (
+            <div
+              className="post-poster-frame"
+              style={{ background: theme.gradient, color: theme.textColor }}
+            >
+              {post.title && post.title !== post.description && (
+                <h3 className="post-poster-frame__title" style={{ color: theme.textColor }}>
+                  {post.title}
+                </h3>
+              )}
+              <p className="post-poster-frame__body" style={{ color: theme.textColor }}>
+                {post.description}
+              </p>
+            </div>
+          ) : displayMode === 'banner' ? (
+            <>
+              <div
+                className="post-banner-frame"
+                style={{ background: theme.gradient, color: theme.textColor }}
+              >
+                <h3 className="post-banner-frame__title" style={{ color: theme.textColor }}>
+                  {post.title}
+                </h3>
+              </div>
+              <p className="post-card__body">{post.description}</p>
+            </>
+          ) : (
+            <>
+              {post.title && <h3 className="post-card__title">{post.title}</h3>}
+              <p className="post-card__body">{post.description}</p>
             </>
           )}
 
-          {/* Action Buttons Row - shared across all modes */}
-          <div className="post-actions-row">
+          {/* Image Attachments Grid (opens ImageLightbox) */}
+          {imageAttachments.length > 0 && (
+            <div className={`post-images post-images-${Math.min(imageAttachments.length, 4)}`}>
+              {imageAttachments.slice(0, 4).map((imageUrl, index) => (
+                <div key={index} className="post-image-item">
+                  <img
+                    src={imageUrl}
+                    alt={`Post attachment ${index + 1}`}
+                    loading="lazy"
+                    onClick={() => {
+                      setLightboxIndex(index);
+                      setLightboxOpen(true);
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Non-Image File Attachments (PDF, DOC, etc.) */}
+          {fileAttachments.length > 0 && (
+            <div className="post-file-attachments">
+              {fileAttachments.map((fileUrl, index) => {
+                const { name, ext } = getFileAttachmentMeta(fileUrl, index);
+                return (
+                  <a
+                    key={index}
+                    href={fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download
+                    className="post-attachment-file"
+                  >
+                    <span className="post-attachment-file__icon" aria-hidden="true">
+                      {ext}
+                    </span>
+                    <span className="post-attachment-file__meta">
+                      <span className="post-attachment-file__name">{name}</span>
+                      <span className="post-attachment-file__type">{ext} Attachment</span>
+                    </span>
+                    <span className="post-attachment-file__dl">
+                      <FiDownload size={13} aria-hidden="true" />
+                      <span>Download</span>
+                    </span>
+                  </a>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Reactions Row */}
+          <div className="post-reactions-row" aria-label="Post reactions">
+            {existingReactionEntries.map(([emoji, userIds]) => {
+              const hasReacted = Boolean(userId && userIds.includes(userId));
+              return (
+                <button
+                  key={emoji}
+                  type="button"
+                  className={`reaction-chip ${hasReacted ? 'active' : ''}`}
+                  onClick={() => handleReaction(emoji)}
+                  aria-pressed={hasReacted}
+                  title={hasReacted ? `Remove ${emoji} reaction` : `React with ${emoji}`}
+                >
+                  <span>{emoji}</span>
+                  <span>{userIds.length}</span>
+                </button>
+              );
+            })}
+
+            {availableQuickReactions.map((emoji) => (
+              <button
+                key={`quick-${emoji}`}
+                type="button"
+                className="reaction-chip reaction-chip--add"
+                onClick={() => handleReaction(emoji)}
+                aria-label={`React with ${emoji}`}
+                title={`React with ${emoji}`}
+              >
+                <span>+ {emoji}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Action Bar: Like, Comments (collapsed by default), Share */}
+          <div className="post-card__actions">
             <button
+              type="button"
               onClick={handleLike}
-              className={`btn-action-modern ${liked ? 'active' : ''}`}
+              className={`post-action-btn ${liked ? 'liked' : ''}`}
+              aria-pressed={liked}
             >
-              {liked ? <FaHeart size={16} /> : <FiHeart size={16} />}
-              <span>{likes} {likes === 1 ? 'Like' : 'Likes'}</span>
+              {liked ? (
+                <FaHeart size={15} aria-hidden="true" />
+              ) : (
+                <FiHeart size={15} aria-hidden="true" />
+              )}
+              <span>
+                {likes} {likes === 1 ? 'Like' : 'Likes'}
+              </span>
             </button>
+
             <button
-              onClick={() => setShowComments(!showComments)}
-              className={`btn-action-modern ${showComments ? 'comment-active' : ''}`}
+              type="button"
+              onClick={() => setShowComments((prev) => !prev)}
+              className={`post-action-btn ${showComments ? 'active' : ''}`}
+              aria-expanded={showComments}
+              aria-controls={postId ? `comments-${postId}` : undefined}
             >
-              <FiMessageCircle size={16} />
-              <span>{comments.length} {comments.length === 1 ? 'Comment' : 'Comments'}</span>
+              <FiMessageCircle size={15} aria-hidden="true" />
+              <span>Comments ({comments.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleShare}
+              className={`post-action-btn post-action-btn--share ${
+                copiedShare ? 'post-action-btn--copied' : ''
+              }`}
+              aria-live="polite"
+            >
+              {copiedShare ? (
+                <>
+                  <FiCheck size={15} aria-hidden="true" />
+                  <span>Copied!</span>
+                </>
+              ) : (
+                <>
+                  <FiShare2 size={15} aria-hidden="true" />
+                  <span>Share</span>
+                </>
+              )}
             </button>
           </div>
 
+          {/* Collapsible Comments Drawer */}
           {showComments && (
-            <div style={{ marginTop: '12px' }}>
-              {/* Modern Comment Input */}
-              <form onSubmit={handleAddComment} className="comment-input-modern">
-                {/* Current User Avatar */}
+            <div id={postId ? `comments-${postId}` : undefined} className="post-comments">
+              <form onSubmit={handleAddComment} className="comment-form">
                 {user?.profilePicture ? (
                   <img
                     src={user.profilePicture}
-                    alt={user.name}
-                    className="comment-input-avatar"
+                    alt=""
+                    className="shell-avatar shell-avatar--sm"
                   />
                 ) : (
-                  <div className="comment-input-avatar-placeholder">
-                    {user?.name?.charAt(0) || 'U'}
-                  </div>
-                )}
-
-                {/* Pill Input Wrapper */}
-                <div className="comment-input-wrapper">
-                  <input
-                    type="text"
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Write your comment..."
-                    className="comment-input-field"
-                  />
-                  {/* <div className="comment-input-icons">
-                    <button type="button" className="comment-input-icon-btn" title="Attach file">
-                      <FiPaperclip size={16} />
-                    </button>
-                    <button type="button" className="comment-input-icon-btn" title="Add emoji">
-                      <FiSmile size={16} />
-                    </button>
-                    <button type="button" className="comment-input-icon-btn" title="Add image">
-                      <FiImage size={16} />
-                    </button>
-                  </div> */}
-                  <button
-                    type="submit"
-                    className="comment-input-send"
-                    disabled={!newComment.trim()}
-                    title="Send comment"
+                  <span
+                    className={`shell-avatar shell-avatar--sm ${
+                      user?.role === 'student' ? 'shell-avatar--gold' : ''
+                    }`}
+                    aria-hidden="true"
                   >
-                    <FiSend size={14} />
-                  </button>
-                </div>
+                    {getInitials(user?.name)}
+                  </span>
+                )}
+                <input
+                  type="text"
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder="Write a reply..."
+                  aria-label="Write a reply"
+                  className="comment-form__input"
+                />
+                <button
+                  type="submit"
+                  className="btn btn--navy shell-btn-sm"
+                  disabled={!newComment.trim()}
+                >
+                  <FiSend size={13} aria-hidden="true" />
+                  <span>Reply</span>
+                </button>
               </form>
 
-              {/* Comments List */}
-              {comments.length > 0 && (
-                <div className="comments-list" style={{ marginTop: '16px' }}>
-                  {/* Show latest comments first (reversed), limited by visibleCommentsCount */}
-                  {[...comments].reverse().slice(0, visibleCommentsCount).map((comment) => {
-                    const commentId = comment._id || comment.id;
-                    const isLiked = commentId ? commentLikes[commentId] : false;
-                    const likeCount = comment.likes?.length || 0;
-                    const isAuthor = userId === (comment.author?._id || comment.author?.id);
-                    const isEditing = editingCommentId === commentId;
+              {comments.length === 0 ? (
+                <p className="post-comments__empty">
+                  No comments yet. Start the discussion.
+                </p>
+              ) : (
+                <div className="post-comments__list">
+                  {[...comments]
+                    .reverse()
+                    .slice(0, visibleCommentsCount)
+                    .map((comment) => {
+                      const commentId = comment._id || comment.id || '';
+                      const isLiked = commentId ? commentLikes[commentId] : false;
+                      const likeCount = comment.likes?.length || 0;
+                      const commentAuthorId = comment.author?._id || comment.author?.id || '';
+                      const isCommentAuthor = Boolean(userId && userId === commentAuthorId);
+                      const isEditing = editingCommentId === commentId;
+                      const isEdited =
+                        comment.updatedAt &&
+                        comment.createdAt &&
+                        new Date(comment.updatedAt).getTime() -
+                          new Date(comment.createdAt).getTime() >
+                          1000;
 
-                    // Check if comment was edited (updatedAt > createdAt by more than 1 second)
-                    const isEdited =
-                      comment.updatedAt &&
-                      comment.createdAt &&
-                      new Date(comment.updatedAt).getTime() - new Date(comment.createdAt).getTime() > 1000;
-
-                    return (
-                      <div key={commentId} className="comment-box">
-                        {/* Header row: author, timestamp, actions */}
-                        <div className="comment-header">
-                          <div className="comment-meta">
-                            <span className="comment-author">{comment.author?.name}</span>
-                            <span className="comment-time">• {formatTimeAgo(comment.createdAt)}</span>
-                            {isEdited && <span className="comment-edited">(edited)</span>}
-                          </div>
-                          <div className="comment-actions">
-                            {isAuthor && !isEditing && (
-                              <>
-                                <button
-                                  onClick={() => handleEditComment(comment)}
-                                  className="btn-comment-action"
-                                  title="Edit comment"
-                                >
-                                  <FiEdit2 size={12} />
-                                </button>
-                                <button
-                                  onClick={() => commentId && openDeleteCommentDialog(commentId)}
-                                  className="btn-comment-action btn-comment-delete"
-                                  title="Delete comment"
-                                >
-                                  <FiTrash2 size={12} />
-                                </button>
-                              </>
-                            )}
-                            <button
-                              onClick={() => commentId && handleLikeComment(commentId)}
-                              className={`btn-comment-like ${isLiked ? 'active' : ''}`}
-                              title={isLiked ? 'Unlike' : 'Like'}
+                      return (
+                        <div key={commentId} className="comment-item">
+                          {comment.author?.profilePicture ? (
+                            <img
+                              src={comment.author.profilePicture}
+                              alt=""
+                              className="shell-avatar shell-avatar--xs"
+                            />
+                          ) : (
+                            <span
+                              className={`shell-avatar shell-avatar--xs ${
+                                comment.author?.role === 'student' ? 'shell-avatar--gold' : ''
+                              }`}
+                              aria-hidden="true"
                             >
-                              {isLiked ? <FaHeart size={12} /> : <FiHeart size={12} />}
-                              {likeCount > 0 && <span>{likeCount}</span>}
-                            </button>
+                              {getInitials(comment.author?.name)}
+                            </span>
+                          )}
+
+                          <div className="comment-item__body">
+                            <div className="comment-item__top">
+                              <div className="comment-item__meta">
+                                {commentAuthorId ? (
+                                  <Link
+                                    to={`/user/${commentAuthorId}`}
+                                    className="comment-item__author"
+                                  >
+                                    {comment.author?.name || 'Member'}
+                                  </Link>
+                                ) : (
+                                  <strong className="comment-item__author">
+                                    {comment.author?.name || 'Member'}
+                                  </strong>
+                                )}
+                                <span className="post-time">
+                                  {formatTimeAgo(comment.createdAt)}
+                                </span>
+                                {isEdited && (
+                                  <span className="comment-item__edited">(edited)</span>
+                                )}
+                              </div>
+
+                              <div className="comment-item__actions">
+                                {isCommentAuthor && !isEditing && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleEditComment(comment)}
+                                      className="comment-item__icon-btn"
+                                      title="Edit comment"
+                                      aria-label="Edit comment"
+                                    >
+                                      <FiEdit2 size={12} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => commentId && openDeleteCommentDialog(commentId)}
+                                      className="comment-item__icon-btn comment-item__icon-btn--danger"
+                                      title="Delete comment"
+                                      aria-label="Delete comment"
+                                    >
+                                      <FiTrash2 size={12} />
+                                    </button>
+                                  </>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => commentId && handleLikeComment(commentId)}
+                                  className={`comment-item__icon-btn ${isLiked ? 'liked' : ''}`}
+                                  title={isLiked ? 'Unlike comment' : 'Like comment'}
+                                  aria-pressed={isLiked}
+                                >
+                                  {isLiked ? <FaHeart size={12} /> : <FiHeart size={12} />}
+                                  {likeCount > 0 && <span>{likeCount}</span>}
+                                </button>
+                              </div>
+                            </div>
+
+                            {isEditing ? (
+                              <div className="comment-item__edit">
+                                <input
+                                  ref={editCommentRef}
+                                  type="text"
+                                  value={editCommentContent}
+                                  onChange={(e) => setEditCommentContent(e.target.value)}
+                                  onKeyDown={(e) => commentId && handleEditKeyDown(e, commentId)}
+                                  className="comment-form__input"
+                                  autoFocus
+                                />
+                                <div className="comment-item__edit-actions">
+                                  <button
+                                    type="button"
+                                    onClick={() => commentId && handleSaveCommentEdit(commentId)}
+                                    className="btn btn--gold shell-btn-sm"
+                                  >
+                                    <FiCheck size={12} aria-hidden="true" />
+                                    <span>Save</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={handleCancelCommentEdit}
+                                    className="btn btn--ghost shell-btn-sm"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="comment-item__text">{comment.content}</p>
+                            )}
                           </div>
                         </div>
+                      );
+                    })}
 
-                        {/* Content row: text or edit input */}
-                        {isEditing ? (
-                          <div className="comment-edit-form">
-                            <input
-                              ref={editCommentRef}
-                              type="text"
-                              value={editCommentContent}
-                              onChange={(e) => setEditCommentContent(e.target.value)}
-                              onKeyDown={(e) => commentId && handleEditKeyDown(e, commentId)}
-                              className="input-modern comment-edit-input"
-                              autoFocus
-                            />
-                            <div className="comment-edit-actions">
-                              <button
-                                onClick={() => commentId && handleSaveCommentEdit(commentId)}
-                                className="btn-comment-save"
-                              >
-                                <FiCheck size={12} style={{ marginRight: '4px' }} />
-                                Save
-                              </button>
-                              <button
-                                onClick={handleCancelCommentEdit}
-                                className="btn-comment-cancel"
-                              >
-                                <FiX size={12} style={{ marginRight: '4px' }} />
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <p className="comment-content">{comment.content}</p>
-                        )}
-                      </div>
-                    );
-                  })}
-                  {/* View previous comments button - at the bottom */}
                   {comments.length > visibleCommentsCount && (
                     <button
-                      className="button btn-ghost"
-                      style={{ 
-                        width: '100%', 
-                        marginTop: '12px', 
-                        fontSize: '13px', 
-                        padding: '8px 12px' 
-                      }}
-                      onClick={() => setVisibleCommentsCount(prev => Math.min(prev + 3, comments.length))}
+                      type="button"
+                      className="btn btn--ghost shell-btn-sm post-comments__more"
+                      onClick={() =>
+                        setVisibleCommentsCount((prev) => Math.min(prev + 3, comments.length))
+                      }
                     >
                       View previous comments ({comments.length - visibleCommentsCount} more)
                     </button>
@@ -1164,16 +1351,16 @@ const PostComponent: React.FC<PostProps> = ({ post, onPostDeleted, onPostUpdated
       />
 
       {/* Image Lightbox */}
-      {post.attachments && post.attachments.length > 0 && (
+      {imageAttachments.length > 0 && (
         <ImageLightbox
-          images={post.attachments}
+          images={imageAttachments}
           currentIndex={lightboxIndex}
           isOpen={lightboxOpen}
           onClose={() => setLightboxOpen(false)}
           onNavigate={setLightboxIndex}
         />
       )}
-    </div>
+    </article>
   );
 };
 

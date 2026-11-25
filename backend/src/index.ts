@@ -15,12 +15,25 @@ import commentRoutes from './routes/commentRoutes';
 import adminRoutes from './routes/adminRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import { restrictHttpMethods, ipAllowlist } from './middleware/security';
+import {
+  requestIdMiddleware,
+  requestLoggingMiddleware,
+  notFoundHandler,
+  globalErrorHandler,
+  setupProcessErrorHandlers,
+  ForbiddenError,
+} from './middleware/errorHandler';
+import { logger } from './utils/logger';
 
 const app: Express = express();
 const PORT = process.env.PORT || 4000;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/ccit-wall';
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const isProd = NODE_ENV === 'production';
+
+if (NODE_ENV !== 'test') {
+  setupProcessErrorHandlers();
+}
 
 // ============================================================================
 // SECURITY: Hide Stack Fingerprinting
@@ -50,39 +63,57 @@ if (isProd && process.env.ENABLE_TRUST_PROXY !== 'false') {
 // ============================================================================
 // CORS - Client URL Configuration (MUST be before security middleware)
 // ============================================================================
-// CORS is explicitly enabled here. Origins are restricted to CLIENT_URL.
-// For production, ensure CLIENT_URL is set to your frontend domain only.
+// CORS is explicitly restricted to approved origins only.
+// Localhost origins are included only outside production.
+// Additional origins can be supplied via CLIENT_URL or comma-separated ALLOWED_ORIGINS.
 // This MUST be placed before restrictHttpMethods to properly handle OPTIONS preflight requests.
-const allowedOrigins = [
+const devOrigins = [
   'http://localhost:3000',
   'http://127.0.0.1:3000',
   'http://localhost:3001',
   'http://127.0.0.1:3001',
   'http://localhost:3002',
-  'https://ccit-wall.vercel.app',
-  'https://ccit-wall-2026-d5sb.vercel.app',
-  'https://ccit-wall-2026.vercel.app'
 ];
 
-// Add CLIENT_URL if it's set in environment
-if (process.env.CLIENT_URL && !allowedOrigins.includes(process.env.CLIENT_URL)) {
-  allowedOrigins.push(process.env.CLIENT_URL);
-}
+const officialOrigins = [
+  'https://ccit-wall.vercel.app',
+  'https://ccit-wall-2026-d5sb.vercel.app',
+  'https://ccit-wall-2026.vercel.app',
+];
+
+const extraOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
+
+const allowedOrigins = Array.from(
+  new Set([
+    ...(!isProd ? devOrigins : []),
+    ...officialOrigins,
+    ...(process.env.CLIENT_URL ? [process.env.CLIENT_URL.trim()] : []),
+    ...extraOrigins,
+  ])
+);
+
+/**
+ * CORS origin check. Rejected origins produce a 403 ForbiddenError so the
+ * globalErrorHandler responds with a clean 403 instead of a generic 500.
+ */
+export const corsOriginHandler = (
+  origin: string | undefined,
+  callback: (err: Error | null, allow?: boolean) => void
+): void => {
+  // Allow requests with no origin (e.g., mobile apps, curl, server-to-server)
+  if (!origin) return callback(null, true);
+  // Allow only explicitly approved origins
+  if (allowedOrigins.includes(origin)) {
+    return callback(null, true);
+  }
+  callback(new ForbiddenError('Not allowed by CORS'));
+};
 
 app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (e.g., mobile apps, curl, server-to-server)
-    if (!origin) return callback(null, true);
-    // Allow current and preview Vercel deployment URLs for this project
-    if (origin.match(/^https:\/\/ccit-wall(?:-[a-z0-9-]+)?\.vercel\.app$/i)) {
-      return callback(null, true);
-    }
-    // Allow explicitly listed origins
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    callback(new Error('Not allowed by CORS'));
-  },
+  origin: corsOriginHandler,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -92,44 +123,44 @@ app.use(cors({
 // SECURITY: Helmet - Comprehensive HTTP Header Hardening
 // ============================================================================
 // Helmet sets various HTTP headers to protect against common attacks:
+// - Content-Security-Policy: strict API policy enabled by default (disable via ENABLE_CSP=false)
 // - X-Frame-Options: SAMEORIGIN (prevents clickjacking)
 // - X-Content-Type-Options: nosniff (prevents MIME type sniffing)
 // - Referrer-Policy: no-referrer (privacy-first referrer policy)
 // - Cross-Origin-Opener-Policy: same-origin (prevents window.opener access)
-// - And many others...
+const cspConfig = process.env.ENABLE_CSP === 'false'
+  ? false
+  : {
+      useDefaults: false,
+      directives: {
+        defaultSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+        baseUri: ["'none'"],
+        formAction: ["'none'"],
+      },
+    };
+
 app.use(helmet({
-  contentSecurityPolicy: false, // Disabled by default to avoid breaking existing assets
+  contentSecurityPolicy: cspConfig,
   crossOriginOpenerPolicy: { policy: 'same-origin' },
   crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow images to be loaded cross-origin
   referrerPolicy: { policy: 'no-referrer' },
   frameguard: { action: 'sameorigin' }
 }));
 
-// Optional: Content Security Policy (CSP)
-// Uncomment or enable via ENABLE_CSP=true to enforce strict CSP.
-// This may break inline scripts or external asset loading—test carefully in development first.
-if (process.env.ENABLE_CSP === 'true') {
-  app.use(helmet.contentSecurityPolicy({
-    useDefaults: true,
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"], // Adjust based on your frontend needs
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", 'data:', 'https:'],
-      connectSrc: ["'self'"],
-      objectSrc: ["'none'"],
-      upgradeInsecureRequests: []
-    }
-  }));
-}
+// ============================================================================
+// OBSERVABILITY: Request ID & Structured Request Logging
+// ============================================================================
+app.use(requestIdMiddleware);
+app.use(requestLoggingMiddleware);
 
 // ============================================================================
 // SECURITY: HTTP Method Restriction
 // ============================================================================
 // Restrict HTTP methods to only safe/common ones.
-// - Allowed: GET, POST, HEAD
+// - Allowed: GET, POST, PUT, PATCH, DELETE, HEAD
 // - If CORS enabled (ENABLE_CORS=true): Also allow OPTIONS for preflight
-// Returns 405 Method Not Allowed for others (PUT, DELETE, TRACE, etc.)
+// Returns 405 Method Not Allowed for others (TRACE, etc.)
 // This applies to the entire application unless overridden per-route.
 app.use(restrictHttpMethods);
 
@@ -160,8 +191,8 @@ app.use(limiter);
 // ============================================================================
 // Body Parsing Middleware
 // ============================================================================
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '100kb' }));
+app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 
 // ============================================================================
 // Database Connection
@@ -169,10 +200,13 @@ app.use(express.urlencoded({ extended: true }));
 mongoose
   .connect(MONGODB_URI)
   .then(() => {
-    console.log('Connected to MongoDB');
+    logger.info('Connected to MongoDB');
   })
   .catch((error) => {
-    console.error('MongoDB connection error:', error);
+    logger.error(
+      'MongoDB connection error',
+      error instanceof Error ? error : new Error(String(error))
+    );
   });
 
 // ============================================================================
@@ -195,26 +229,11 @@ app.get('/health', (req, res) => {
   res.json({ status: 'CCIT Wall API is running' });
 });
 
-// Catch-all for unknown routes
-app.use('*', (req, res) => {
-  res.status(404).json({ error: 'Not Found', message: 'API endpoint not found' });
-});
-
 // ============================================================================
-// Error Handler (Optional but Recommended)
+// Centralized 404 & Error Handling
 // ============================================================================
-// Catch-all error handler that doesn't leak stack traces in production
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('Unhandled error:', err);
-  
-  const statusCode = err.statusCode || 500;
-  const message = isProd ? 'Internal Server Error' : err.message;
-  
-  res.status(statusCode).json({
-    error: message,
-    ...(process.env.DEBUG === 'true' && { stack: err.stack })
-  });
-});
+app.use(notFoundHandler);
+app.use(globalErrorHandler);
 
 // ============================================================================
 // Start Server
@@ -222,12 +241,16 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 // Only listen if not running as a Vercel serverless function
 if (process.env.VERCEL === undefined) {
   app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT} (${NODE_ENV})`);
-    console.log(`Trust Proxy: ${isProd && process.env.ENABLE_TRUST_PROXY !== 'false' ? 'enabled' : 'disabled'}`);
-    console.log(`Rate Limit: ${process.env.RATE_LIMIT_MAX || 200} requests per ${process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000}ms`);
+    logger.info(`Server is running on port ${PORT} (${NODE_ENV})`, undefined, {
+      port: PORT,
+      nodeEnv: NODE_ENV,
+      trustProxy: isProd && process.env.ENABLE_TRUST_PROXY !== 'false',
+      rateLimitMax: Number(process.env.RATE_LIMIT_MAX || 200),
+      rateLimitWindowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
+    });
   });
 } else {
-  console.log(`Running as Vercel serverless function (${NODE_ENV})`);
+  logger.info(`Running as Vercel serverless function (${NODE_ENV})`);
 }
 
 export default app;

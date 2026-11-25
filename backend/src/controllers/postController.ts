@@ -4,6 +4,54 @@ import Comment from '../models/Comment';
 import mongoose from 'mongoose';
 import { createNotification, deleteNotification } from '../utils/notificationHelper';
 import { uploadFile, deleteFiles } from '../utils/storage';
+import { logger } from '../utils/logger';
+
+const ALLOWED_CATEGORIES = ['college-activities', 'general', 'extracurricular'];
+const MAX_SEARCH_LENGTH = 100;
+const SENSITIVE_AUTHOR_FIELDS = ['firebaseUid', 'authProvider', 'emailVerified', 'password'];
+
+const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+type Viewer = { userId: string; role: string };
+
+/**
+ * Convert a post (Mongoose document or plain object) to a safe plain object for the viewer.
+ * - Strips sensitive fields from populated authors.
+ * - Hides real author identity on anonymous posts unless viewer is the author or an admin.
+ */
+export const sanitizePostForViewer = (post: any, viewer?: Viewer): any => {
+  if (!post) return post;
+  const plain: any =
+    typeof post.toObject === 'function' ? post.toObject({ flattenMaps: true }) : { ...post };
+
+  const author = plain.author;
+  if (author && typeof author === 'object' && !(typeof author.toHexString === 'function')) {
+    for (const field of SENSITIVE_AUTHOR_FIELDS) {
+      delete author[field];
+    }
+  }
+
+  if (plain.isAnonymous === true) {
+    const authorId =
+      typeof author === 'object' && author !== null
+        ? String(author._id ?? author.id ?? '')
+        : String(author ?? '');
+    if (viewer?.role !== 'admin' && viewer?.userId !== authorId) {
+      plain.author = { _id: null, name: 'Anonymous', role: 'student' };
+    }
+  }
+
+  return plain;
+};
+
+const handleControllerError = (res: Response, error: unknown, context: string) => {
+  const err = error instanceof Error ? error : new Error(String(error));
+  if (err.message.startsWith('Unsupported file type') || err.message.startsWith('File too large')) {
+    return res.status(400).json({ message: err.message });
+  }
+  logger.error(context, err);
+  return res.status(500).json({ message: 'Internal server error' });
+};
 
 export const createPost = async (req: Request, res: Response) => {
   try {
@@ -11,7 +59,7 @@ export const createPost = async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Unauthorized' });
     }
     
-    const { title, description, category, isAnonymous, theme } = req.body;
+    const { title, description, category, isAnonymous, isAnnouncement, theme } = req.body;
 
     // Upload files to Firebase Storage (if any)
     let attachments: string[] = [];
@@ -26,6 +74,10 @@ export const createPost = async (req: Request, res: Response) => {
 
     // Teachers can only post public posts (announcements and reminders)
     const postIsAnonymous = req.user.role === 'teacher' ? false : (isAnonymous === 'true' || isAnonymous === true || false);
+    const postIsAnnouncement =
+      req.user.role === 'teacher' || req.user.role === 'admin'
+        ? (isAnnouncement === 'true' || isAnnouncement === true)
+        : false;
 
     const post = new Post({
       title,
@@ -33,6 +85,7 @@ export const createPost = async (req: Request, res: Response) => {
       author: req.user.userId,
       category,
       isAnonymous: postIsAnonymous,
+      isAnnouncement: postIsAnnouncement,
       attachments,
       theme: theme || 'none',
     });
@@ -42,10 +95,10 @@ export const createPost = async (req: Request, res: Response) => {
 
     res.status(201).json({
       message: 'Post created successfully',
-      post,
+      post: sanitizePostForViewer(post, req.user),
     });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error });
+    handleControllerError(res, error, 'Failed in createPost');
   }
 };
 
@@ -54,12 +107,21 @@ export const getAllPosts = async (req: Request, res: Response) => {
     const { search, category } = req.query;
     const filter: any = {};
 
-    if (search) {
-      filter.title = { $regex: search, $options: 'i' };
+    if (category !== undefined) {
+      if (typeof category !== 'string' || !ALLOWED_CATEGORIES.includes(category)) {
+        return res.status(400).json({ message: 'Invalid category' });
+      }
+      filter.category = category;
     }
 
-    if (category) {
-      filter.category = category;
+    if (search !== undefined) {
+      if (typeof search !== 'string') {
+        return res.status(400).json({ message: 'Invalid search query' });
+      }
+      const term = search.trim().slice(0, MAX_SEARCH_LENGTH);
+      if (term.length > 0) {
+        filter.title = { $regex: escapeRegex(term), $options: 'i' };
+      }
     }
 
     const posts = await Post.find(filter)
@@ -67,9 +129,9 @@ export const getAllPosts = async (req: Request, res: Response) => {
       .populate('comments')
       .sort({ createdAt: -1 });
 
-    res.json(posts);
+    res.json(posts.map((p) => sanitizePostForViewer(p, req.user)));
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error });
+    handleControllerError(res, error, 'Failed in getAllPosts');
   }
 };
 
@@ -83,9 +145,9 @@ export const getPostById = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Post not found' });
     }
 
-    res.json(post);
+    res.json(sanitizePostForViewer(post, req.user));
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error });
+    handleControllerError(res, error, 'Failed in getPostById');
   }
 };
 
@@ -95,7 +157,7 @@ export const updatePost = async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Unauthorized' });
     }
     
-    const { title, description, category, isAnonymous, existingImages, theme } = req.body;
+    const { title, description, category, isAnonymous, isAnnouncement, existingImages, theme } = req.body;
 
     const post = await Post.findById(req.params.id);
 
@@ -122,6 +184,10 @@ export const updatePost = async (req: Request, res: Response) => {
       post.isAnonymous = isAnonymous === 'true' || isAnonymous === true;
     }
 
+    if ((req.user.role === 'teacher' || req.user.role === 'admin') && isAnnouncement !== undefined) {
+      post.isAnnouncement = isAnnouncement === 'true' || isAnnouncement === true;
+    }
+
     // Handle image updates
     let updatedAttachments: string[] = [];
 
@@ -132,7 +198,11 @@ export const updatePost = async (req: Request, res: Response) => {
           ? JSON.parse(existingImages) 
           : existingImages;
         if (Array.isArray(parsed)) {
-          updatedAttachments = parsed;
+          // Only allow URLs that are already attached to this post
+          const existingSet = new Set<string>(post.attachments || []);
+          updatedAttachments = parsed.filter(
+            (url: unknown): url is string => typeof url === 'string' && existingSet.has(url)
+          );
         }
       } catch {
         // If parsing fails, ignore existingImages
@@ -165,9 +235,9 @@ export const updatePost = async (req: Request, res: Response) => {
     await post.save();
     await post.populate('author', '-password');
 
-    res.json({ message: 'Post updated successfully', post });
+    res.json({ message: 'Post updated successfully', post: sanitizePostForViewer(post, req.user) });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error });
+    handleControllerError(res, error, 'Failed in updatePost');
   }
 };
 
@@ -195,7 +265,7 @@ export const deletePost = async (req: Request, res: Response) => {
     await Post.findByIdAndDelete(req.params.id);
     res.json({ message: 'Post deleted successfully' });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error });
+    handleControllerError(res, error, 'Failed in deletePost');
   }
 };
 
@@ -214,11 +284,6 @@ export const likePost = async (req: Request, res: Response) => {
     const userIdStr = req.user.userId.toString();
     const userObjectId = new mongoose.Types.ObjectId(req.user.userId);
     const likeIndex = post.likes.findIndex(id => id.toString() === userIdStr);
-
-    console.log('=== LIKE POST NOTIFICATION DEBUG ===');
-    console.log('Post author ID:', post.author.toString());
-    console.log('User liking (sender):', userObjectId.toString());
-    console.log('Are they the same?', post.author.toString() === userObjectId.toString());
 
     if (likeIndex > -1) {
       // Unlike - remove the like
@@ -243,9 +308,9 @@ export const likePost = async (req: Request, res: Response) => {
     }
 
     await post.save();
-    res.json({ message: 'Post like toggled', post });
+    res.json({ message: 'Post like toggled', post: sanitizePostForViewer(post, req.user) });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error });
+    handleControllerError(res, error, 'Failed in likePost');
   }
 };
 
@@ -301,9 +366,9 @@ export const addReaction = async (req: Request, res: Response) => {
     post.reactions.set(emoji, userReactions);
     await post.save();
 
-    res.json({ message: 'Reaction added', post });
+    res.json({ message: 'Reaction added', post: sanitizePostForViewer(post, req.user) });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error });
+    handleControllerError(res, error, 'Failed in addReaction');
   }
 };
 
@@ -328,9 +393,9 @@ export const sharePost = async (req: Request, res: Response) => {
     }
 
     await post.save();
-    res.json({ message: 'Post shared', post });
+    res.json({ message: 'Post shared', post: sanitizePostForViewer(post, req.user) });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error });
+    handleControllerError(res, error, 'Failed in sharePost');
   }
 };
 
@@ -338,18 +403,20 @@ export const searchPosts = async (req: Request, res: Response) => {
   try {
     const { query } = req.query;
 
-    if (!query) {
+    if (typeof query !== 'string' || query.trim().length === 0) {
       return res.status(400).json({ message: 'Search query is required' });
     }
 
+    const term = query.trim().slice(0, MAX_SEARCH_LENGTH);
+
     const posts = await Post.find({
-      title: { $regex: query, $options: 'i' },
+      title: { $regex: escapeRegex(term), $options: 'i' },
     })
       .populate('author', '-password')
       .sort({ createdAt: -1 });
 
-    res.json(posts);
+    res.json(posts.map((p) => sanitizePostForViewer(p, req.user)));
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error });
+    handleControllerError(res, error, 'Failed in searchPosts');
   }
 };

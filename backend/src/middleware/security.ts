@@ -6,6 +6,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import CIDR from 'ip-cidr';
+import { logger } from '../utils/logger';
 
 /**
  * HTTP Method Restriction Middleware
@@ -22,8 +23,13 @@ import CIDR from 'ip-cidr';
 export const restrictHttpMethods = (req: Request, res: Response, next: NextFunction) => {
   const enableCors = process.env.ENABLE_CORS === 'true';
   
-  // Base allowed methods - OPTIONS is always allowed for CORS preflight support
-  const allowedMethods = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']);
+  // Base allowed methods
+  const allowedMethods = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD']);
+
+  // Allow OPTIONS when CORS is enabled via ENABLE_CORS=true
+  if (enableCors) {
+    allowedMethods.add('OPTIONS');
+  }
   
   if (!allowedMethods.has(req.method)) {
     return res.status(405).json({
@@ -44,8 +50,11 @@ export const restrictHttpMethods = (req: Request, res: Response, next: NextFunct
  * Environment Variables:
  * - ADMIN_ALLOWLIST_CIDR: Comma-separated list of CIDR ranges (e.g., "10.0.0.0/8,192.168.1.0/24")
  *   If not set, all IPs are allowed (disabled).
- * - ENABLE_TRUST_PROXY: Set to "true" if behind a reverse proxy (default: "true" in production)
- *   When enabled, reads X-Forwarded-For header to get real client IP.
+ *
+ * Proxy Support:
+ * - Relies strictly on Express's `req.ip` (which only honors `X-Forwarded-For` when
+ *   `app.set('trust proxy', ...)` is explicitly configured on the Express app).
+ *   Never manually parses `X-Forwarded-For` to prevent IP spoofing bypasses.
  * 
  * Usage:
  *   app.use('/api/admin', ipAllowlist, adminRoutes);
@@ -63,20 +72,8 @@ export const ipAllowlist = (req: Request, res: Response, next: NextFunction) => 
   // Parse comma-separated CIDR ranges
   const cidrs = allowlistEnv.split(',').map(c => c.trim()).filter(Boolean);
   
-  // Get client IP
-  const enableTrustProxy = process.env.ENABLE_TRUST_PROXY !== 'false' && 
-                          (process.env.NODE_ENV === 'production' || process.env.ENABLE_TRUST_PROXY === 'true');
-  
-  let clientIp = req.ip || req.connection.remoteAddress || '';
-  
-  if (enableTrustProxy) {
-    // When behind a reverse proxy (e.g., NGINX), get the real IP from X-Forwarded-For header
-    const forwarded = req.headers['x-forwarded-for'];
-    if (forwarded) {
-      // X-Forwarded-For can contain multiple IPs; the first one is the client IP
-      clientIp = (typeof forwarded === 'string' ? forwarded.split(',')[0] : forwarded[0]).trim();
-    }
-  }
+  // Rely strictly on Express req.ip (only honors X-Forwarded-For when trust proxy is configured)
+  let clientIp = req.ip || req.socket?.remoteAddress || '';
   
   // Remove IPv6 prefix if present (::ffff:) to normalize to IPv4
   if (clientIp.startsWith('::ffff:')) {
@@ -89,13 +86,20 @@ export const ipAllowlist = (req: Request, res: Response, next: NextFunction) => 
       const cidr = new CIDR(cidrRange);
       return cidr.contains(clientIp);
     } catch (error) {
-      console.error(`Invalid CIDR range: ${cidrRange}`, error);
+      logger.error(
+        `Invalid CIDR range: ${cidrRange}`,
+        error instanceof Error ? error : new Error(String(error))
+      );
       return false;
     }
   });
   
   if (!isAllowed) {
-    console.warn(`Access denied for IP ${clientIp} on admin route`);
+    logger.warn(`Access denied for IP ${clientIp} on admin route`, {
+      ip: clientIp,
+      path: req.path,
+      method: req.method,
+    });
     return res.status(403).json({
       error: 'Forbidden',
       message: 'Your IP address is not authorized to access this resource'

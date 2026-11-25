@@ -1,5 +1,19 @@
 import { body, param, query, validationResult } from 'express-validator';
 import { Request, Response, NextFunction } from 'express';
+import { logger } from '../utils/logger';
+
+const DEFAULT_ALLOWED_IMAGE_HOSTS = [
+  'storage.googleapis.com',
+  'firebasestorage.googleapis.com',
+  'lh3.googleusercontent.com',
+  'avatars.githubusercontent.com',
+  'graph.microsoft.com',
+];
+
+const ALLOWED_REACTION_EMOJIS = [
+  '🔥', '👏', '💡', '👍', '❤️', '😂', '😮', '😢', '🎉', '🙏',
+  'like', 'love', 'laugh', 'wow', 'sad', 'angry',
+];
 
 /**
  * Middleware to handle validation results.
@@ -8,10 +22,11 @@ import { Request, Response, NextFunction } from 'express';
 const handleValidationErrors = (req: Request, res: Response, next: NextFunction) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    console.log('=== VALIDATION ERRORS ===');
-    console.log('Path:', req.path);
-    console.log('Method:', req.method);
-    console.log('Errors:', errors.array());
+    logger.warn('Validation failed', {
+      path: req.path,
+      method: req.method,
+      errorCount: errors.array().length,
+    });
     return res.status(400).json({ errors: errors.array() });
   }
   next();
@@ -19,17 +34,16 @@ const handleValidationErrors = (req: Request, res: Response, next: NextFunction)
 
 /**
  * Validation rules for profile update.
- * - name: Optional, trimmed, escaped
+ * - name: Optional, trimmed, 2-100 characters
  * - bio: Optional, trimmed, max 500 characters
- * - profilePicture: Optional, must be a valid URL
- * - contactInformation: Optional, trimmed, escaped
+ * - profilePicture: Optional, must be a valid HTTPS URL from an allowed host
+ * - contactInformation: Optional, trimmed, max 200 characters
  */
 export const validateProfileUpdate = [
   body('name')
     .optional()
     .trim()
-    .isLength({ min: 2, max: 100 }).withMessage('Name must be between 2 and 100 characters')
-    .escape(),
+    .isLength({ min: 2, max: 100 }).withMessage('Name must be between 2 and 100 characters'),
   body('bio')
     .optional()
     .trim()
@@ -37,12 +51,49 @@ export const validateProfileUpdate = [
   body('profilePicture')
     .optional()
     .trim()
-    .isURL().withMessage('Profile picture must be a valid URL'),
+    .isURL({ protocols: ['https'], require_protocol: true })
+    .withMessage('Profile picture must be a valid HTTPS URL')
+    .custom((value: string) => {
+      const extraHosts = (process.env.ALLOWED_IMAGE_HOSTS || '')
+        .split(',')
+        .map(host => host.trim().toLowerCase())
+        .filter(Boolean);
+      const allowedHosts = new Set([...DEFAULT_ALLOWED_IMAGE_HOSTS, ...extraHosts]);
+
+      let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(value);
+      } catch {
+        throw new Error('Profile picture must be a valid HTTPS URL');
+      }
+
+      if (parsedUrl.protocol !== 'https:') {
+        throw new Error('Profile picture URL must use HTTPS');
+      }
+
+      if (!allowedHosts.has(parsedUrl.hostname.toLowerCase())) {
+        throw new Error('Profile picture URL host is not allowed');
+      }
+
+      return true;
+    }),
   body('contactInformation')
     .optional()
     .trim()
-    .isLength({ max: 200 }).withMessage('Contact information must not exceed 200 characters')
-    .escape(),
+    .isLength({ max: 200 }).withMessage('Contact information must not exceed 200 characters'),
+  handleValidationErrors
+];
+
+/**
+ * Validation rules for syncing Firebase user profile.
+ * - name: Optional string, trimmed, 1-100 characters
+ */
+export const validateSyncProfile = [
+  body('name')
+    .optional()
+    .isString().withMessage('Name must be a string')
+    .trim()
+    .isLength({ min: 1, max: 100 }).withMessage('Name must be between 1 and 100 characters'),
   handleValidationErrors
 ];
 
@@ -52,6 +103,15 @@ export const validateProfileUpdate = [
 export const validateObjectId = [
   param('id')
     .isMongoId().withMessage('Invalid ID format'),
+  handleValidationErrors
+];
+
+/**
+ * Validation rules for userId route parameter.
+ */
+export const validateUserIdParam = [
+  param('userId')
+    .isMongoId().withMessage('Invalid user ID format'),
   handleValidationErrors
 ];
 
@@ -73,11 +133,31 @@ export const validateSearchQuery = [
 // ============================================================================
 
 /**
+ * Validation rules for querying posts list.
+ * - category: Optional string in allowed categories
+ * - search: Optional string, trimmed, max 100 characters
+ */
+export const validateGetPostsQuery = [
+  query('category')
+    .optional({ values: 'falsy' })
+    .isString().withMessage('Category must be a string')
+    .isIn(['college-activities', 'general', 'extracurricular'])
+    .withMessage('Category must be one of: college-activities, general, extracurricular'),
+  query('search')
+    .optional()
+    .isString().withMessage('Search query must be a string')
+    .trim()
+    .isLength({ max: 100 }).withMessage('Search query must not exceed 100 characters'),
+  handleValidationErrors
+];
+
+/**
  * Validation rules for creating a post.
  * - title: Required, trimmed, 1-200 characters
  * - description: Required, trimmed, 1-5000 characters
  * - category: Required, must be one of the allowed categories
  * - isAnonymous: Optional, must be boolean
+ * - isAnnouncement: Optional, must be boolean
  * - attachments: Optional, must be array of valid URLs
  * - theme: Optional, string for post background theme
  */
@@ -85,8 +165,7 @@ export const validateCreatePost = [
   body('title')
     .trim()
     .notEmpty().withMessage('Title is required')
-    .isLength({ min: 1, max: 200 }).withMessage('Title must be between 1 and 200 characters')
-    .escape(),
+    .isLength({ min: 1, max: 200 }).withMessage('Title must be between 1 and 200 characters'),
   body('description')
     .trim()
     .notEmpty().withMessage('Description is required')
@@ -103,6 +182,15 @@ export const validateCreatePost = [
       return value;
     })
     .isBoolean().withMessage('isAnonymous must be a boolean value'),
+  body('isAnnouncement')
+    .optional()
+    .customSanitizer(value => {
+      // Handle string 'true'/'false' from FormData
+      if (value === 'true') return true;
+      if (value === 'false') return false;
+      return value;
+    })
+    .isBoolean().withMessage('isAnnouncement must be a boolean value'),
   body('theme')
     .optional()
     .trim()
@@ -132,8 +220,7 @@ export const validateUpdatePost = [
   body('title')
     .optional()
     .trim()
-    .isLength({ min: 1, max: 200 }).withMessage('Title must be between 1 and 200 characters')
-    .escape(),
+    .isLength({ min: 1, max: 200 }).withMessage('Title must be between 1 and 200 characters'),
   body('description')
     .optional()
     .trim()
@@ -150,6 +237,15 @@ export const validateUpdatePost = [
       return value;
     })
     .isBoolean().withMessage('isAnonymous must be a boolean value'),
+  body('isAnnouncement')
+    .optional()
+    .customSanitizer(value => {
+      // Handle string 'true'/'false' from FormData
+      if (value === 'true') return true;
+      if (value === 'false') return false;
+      return value;
+    })
+    .isBoolean().withMessage('isAnnouncement must be a boolean value'),
   body('theme')
     .optional()
     .trim()
@@ -170,14 +266,15 @@ export const validatePostId = [
 ];
 
 /**
- * Validation for reaction type.
+ * Validation for post reaction emoji.
  */
 export const validateReaction = [
   param('id')
     .isMongoId().withMessage('Invalid post ID format'),
-  body('reactionType')
-    .notEmpty().withMessage('Reaction type is required')
-    .isIn(['like', 'love', 'laugh', 'wow', 'sad', 'angry']).withMessage('Invalid reaction type'),
+  body('emoji')
+    .notEmpty().withMessage('Reaction emoji is required')
+    .isString().withMessage('Reaction emoji must be a string')
+    .isIn(ALLOWED_REACTION_EMOJIS).withMessage('Invalid reaction emoji'),
   handleValidationErrors
 ];
 

@@ -1,6 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { FiArrowLeft } from 'react-icons/fi';
 import ThemeToggle from './ThemeToggle';
+
+const NU_SHIELD_URL = 'https://upload.wikimedia.org/wikipedia/commons/9/90/NU_shield.svg';
 
 interface AuthLayoutProps {
   children: React.ReactNode;
@@ -11,43 +14,67 @@ interface AuthLayoutProps {
 const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle }) => {
   return (
     <div className="auth-layout">
-      {/* Floating Theme Toggle */}
-      <div className="auth-layout__theme-toggle">
-        <ThemeToggle />
-      </div>
+      {/* Left NU Navy Brand Panel */}
+      <aside className="auth-layout__brand" aria-label="CCIT Wall overview">
+        <Link to="/" className="auth-brand__back">
+          <FiArrowLeft size={15} aria-hidden="true" />
+          <span>Back to Home</span>
+        </Link>
 
-      {/* Left branded panel */}
-      <div className="auth-layout__brand">
-        <div className="auth-layout__brand-inner">
-          <Link to="/" className="auth-layout__logo-link">
+        <div className="auth-brand__center">
+          <Link to="/" className="auth-brand__crest">
             <img
-              src="https://upload.wikimedia.org/wikipedia/commons/9/90/NU_shield.svg"
-              alt="NU Logo"
-              className="auth-layout__logo"
+              src={NU_SHIELD_URL}
+              alt="National University Shield"
+              width={52}
+              height={52}
+              className="auth-brand__logo"
             />
+            <span className="auth-brand__name">CCIT Wall</span>
           </Link>
-          <h1 className="auth-layout__brand-title">CCIT Wall</h1>
-          <p className="auth-layout__brand-tagline">
-            Your campus community,<br />all in one place.
+
+          <p className="auth-brand__tagline">
+            Your NU Manila CCIT bulletin board for announcements, project showcases, and study
+            groups.
           </p>
-          <div className="auth-layout__brand-decorations">
-            <div className="auth-layout__decoration auth-layout__decoration--1" />
-            <div className="auth-layout__decoration auth-layout__decoration--2" />
-            <div className="auth-layout__decoration auth-layout__decoration--3" />
+
+          <div className="auth-sample-notice" aria-label="Sample pinned campus notice">
+            <div className="auth-sample-notice__meta">
+              <strong className="auth-sample-notice__label">PINNED NOTICE</strong>
+              <span>College Activities</span>
+            </div>
+            <p className="auth-sample-notice__title">Capstone Proposal Defense Schedule</p>
+            <p className="auth-sample-notice__body">
+              Updated room assignments for CS and IT panels are now posted inside the feed.
+            </p>
           </div>
         </div>
-      </div>
 
-      {/* Right form panel */}
-      <div className="auth-layout__form-panel">
+        <p className="auth-brand__copyright">
+          &copy; {new Date().getFullYear()} National University Manila &middot; CCIT
+        </p>
+      </aside>
+
+      {/* Right Form Panel */}
+      <main className="auth-layout__form-panel">
+        <div className="auth-panel__topbar">
+          <Link to="/" className="auth-panel__mobile-back">
+            <FiArrowLeft size={15} aria-hidden="true" />
+            <span>Back to Home</span>
+          </Link>
+          <div className="auth-panel__theme-toggle">
+            <ThemeToggle />
+          </div>
+        </div>
+
         <div className="auth-layout__form-container">
           <div className="auth-layout__form-header">
-            <h2 className="auth-layout__title">{title}</h2>
+            <h1 className="auth-layout__title">{title}</h1>
             <p className="auth-layout__subtitle">{subtitle}</p>
           </div>
           {children}
         </div>
-      </div>
+      </main>
     </div>
   );
 };

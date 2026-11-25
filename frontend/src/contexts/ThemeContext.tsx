@@ -1,9 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
-type Theme = 'light' | 'dark';
+export type Theme = 'light' | 'dark';
+export type ThemeMode = 'system' | 'light' | 'dark';
 
 interface ThemeContextType {
   theme: Theme;
+  themeMode: ThemeMode;
+  setThemeMode: (mode: ThemeMode) => void;
   toggleTheme: () => void;
   setTheme: (theme: Theme) => void;
 }
@@ -12,19 +15,25 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 const THEME_STORAGE_KEY = 'ccit-wall-theme';
 
-function getInitialTheme(): Theme {
-  // Check localStorage first
-  if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem(THEME_STORAGE_KEY);
-    if (stored === 'light' || stored === 'dark') {
-      return stored;
-    }
-    // Check system preference
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      return 'dark';
-    }
+function getSystemTheme(): Theme {
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
   return 'light';
+}
+
+function getInitialThemeMode(): ThemeMode {
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem(THEME_STORAGE_KEY);
+      if (stored === 'light' || stored === 'dark') {
+        return stored;
+      }
+    } catch {
+      // localStorage may be unavailable (e.g. blocked site data)
+    }
+  }
+  return 'system';
 }
 
 interface ThemeProviderProps {
@@ -32,46 +41,76 @@ interface ThemeProviderProps {
 }
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
-  const [theme, setThemeState] = useState<Theme>(getInitialTheme);
+  const [themeMode, setThemeModeState] = useState<ThemeMode>(getInitialThemeMode);
+  const [systemTheme, setSystemTheme] = useState<Theme>(getSystemTheme);
 
-  // Apply theme to document
-  const applyTheme = useCallback((newTheme: Theme) => {
-    document.documentElement.setAttribute('data-theme', newTheme);
-    localStorage.setItem(THEME_STORAGE_KEY, newTheme);
-  }, []);
+  const theme: Theme = themeMode === 'system' ? systemTheme : themeMode;
 
-  // Initialize theme on mount
+  // Keep DOM attribute and localStorage synced with themeMode & resolved theme
   useEffect(() => {
-    applyTheme(theme);
-  }, [theme, applyTheme]);
-
-  // Listen for system preference changes
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    
-    const handleChange = (e: MediaQueryListEvent) => {
-      // Only auto-switch if user hasn't manually set a preference
-      const stored = localStorage.getItem(THEME_STORAGE_KEY);
-      if (!stored) {
-        const newTheme = e.matches ? 'dark' : 'light';
-        setThemeState(newTheme);
+    document.documentElement.setAttribute('data-theme', theme);
+    try {
+      if (themeMode === 'system') {
+        localStorage.removeItem(THEME_STORAGE_KEY);
+      } else {
+        localStorage.setItem(THEME_STORAGE_KEY, themeMode);
       }
+    } catch {
+      // Apply theme to page even if persistence fails
+    }
+  }, [theme, themeMode]);
+
+  // Listen for OS color-scheme preference changes
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+    const handleChange = (e: MediaQueryListEvent) => {
+      setSystemTheme(e.matches ? 'dark' : 'light');
     };
 
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
-  const toggleTheme = useCallback(() => {
-    setThemeState(prev => (prev === 'light' ? 'dark' : 'light'));
+  // Sync theme override changes made in other browser tabs
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === THEME_STORAGE_KEY) {
+        if (e.newValue === 'light' || e.newValue === 'dark') {
+          setThemeModeState(e.newValue);
+        } else {
+          setThemeModeState('system');
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
+  const setThemeMode = useCallback((mode: ThemeMode) => {
+    setThemeModeState(mode);
+  }, []);
+
+  const toggleTheme = useCallback(() => {
+    const target: Theme = theme === 'light' ? 'dark' : 'light';
+    setThemeModeState(target === systemTheme ? 'system' : target);
+  }, [theme, systemTheme]);
+
   const setTheme = useCallback((newTheme: Theme) => {
-    setThemeState(newTheme);
+    setThemeModeState(newTheme);
   }, []);
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, themeMode, setThemeMode, toggleTheme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );

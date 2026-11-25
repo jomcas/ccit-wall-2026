@@ -92,6 +92,7 @@ describe('IP Allowlist Middleware', () => {
       process.env.ENABLE_TRUST_PROXY = 'true';
       
       app = express();
+      app.set('trust proxy', 1);
       app.use(ipAllowlist);
       
       app.get('/admin/test', (req, res) => {
@@ -113,6 +114,21 @@ describe('IP Allowlist Middleware', () => {
         .get('/admin/test')
         .set('X-Forwarded-For', '10.0.0.1');
       
+      expect(response.status).toBe(403);
+      expect(response.body.error).toBe('Forbidden');
+    });
+
+    it('should ignore spoofed X-Forwarded-For header when trust proxy is NOT enabled', async () => {
+      const untrustedApp = express();
+      untrustedApp.use(ipAllowlist);
+      untrustedApp.get('/admin/test', (req, res) => {
+        res.json({ message: 'Admin endpoint' });
+      });
+
+      const response = await request(untrustedApp)
+        .get('/admin/test')
+        .set('X-Forwarded-For', '192.168.1.100');
+
       expect(response.status).toBe(403);
       expect(response.body.error).toBe('Forbidden');
     });
