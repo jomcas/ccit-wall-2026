@@ -71,8 +71,12 @@ const apiService = {
   getAllUsers: () => api.get('/auth/users'),
   getUserById: (id: string) => api.get(`/auth/users/${id}`),
   searchUsers: (query: string) => api.get('/auth/users/search', { params: { query } }),
-  getAllPosts: (search?: string, category?: string) =>
-    api.get('/posts', { params: { search, category } }),
+  getAllPosts: (search?: string, category?: string) => {
+    const params: Record<string, string> = {};
+    if (search) params.search = search;
+    if (category) params.category = category;
+    return api.get('/posts', { params });
+  },
   getPostById: (id: string) => api.get(`/posts/${id}`),
   searchPosts: (query: string) => api.get('/posts/search', { params: { query } }),
   createPost: (data: FormData | any) => api.post('/posts', data),

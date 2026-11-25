@@ -107,7 +107,7 @@ export const getAllPosts = async (req: Request, res: Response) => {
     const { search, category } = req.query;
     const filter: any = {};
 
-    if (category !== undefined) {
+    if (category !== undefined && category !== '') {
       if (typeof category !== 'string' || !ALLOWED_CATEGORIES.includes(category)) {
         return res.status(400).json({ message: 'Invalid category' });
       }

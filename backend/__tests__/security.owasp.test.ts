@@ -814,6 +814,17 @@ describe('A03: search inputs are regex-escaped and type-checked', () => {
     expect(mockPostFind).not.toHaveBeenCalled();
   });
 
+  it('GET /api/posts treats empty search and category query params as omitted (200)', async () => {
+    loginAs(VIEWER_ID, 'student');
+    mockPostFind.mockReturnValue(chain([]));
+    const res = await request(app)
+      .get('/api/posts?search=&category=')
+      .set('Authorization', 'Bearer t');
+
+    expect(res.status).toBe(200);
+    expect(mockPostFind).toHaveBeenCalledWith({});
+  });
+
   it('searchPosts / admin search reject non-string query with 400', async () => {
     const r1 = mockRes();
     await searchPostsCtrl({ query: { query: { $gt: '' } } } as any, r1);
